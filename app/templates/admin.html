@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}User management · Discord Server Register{% endblock %}
+{% block content %}
+<div class="page-head"><h1>User management</h1></div>
+
+<div class="tabs" role="tablist" id="status-tabs">
+  <button class="tab active" data-status="pending" type="button">Pending <span class="count" data-count="pending"></span></button>
+  <button class="tab" data-status="approved" type="button">Approved <span class="count" data-count="approved"></span></button>
+  <button class="tab" data-status="rejected" type="button">Rejected <span class="count" data-count="rejected"></span></button>
+  <button class="tab" data-status="" type="button">All</button>
+</div>
+
+<div class="card table-wrap">
+  <table class="table">
+    <thead><tr><th>Email</th><th>Status</th><th>Applied</th><th>Reviewed</th><th class="right">Actions</th></tr></thead>
+    <tbody id="users-body"></tbody>
+  </table>
+  <p id="users-empty" class="empty muted" hidden>No users in this list.</p>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/admin.js"></script>{% endblock %}
