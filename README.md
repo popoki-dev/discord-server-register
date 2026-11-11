@@ -50,15 +50,16 @@ Open <http://localhost:8000>. The tables are created automatically on first star
 1. **Apply.** On the **Register** tab of `/login`, enter your full name, email and a password (at least 8 characters).
 2. **Approve.** Sign in as the admin and open **User management** (`/admin`). Approve or reject applications under the Pending tab. Rejecting an approved user revokes their access immediately.
 3. **Submit links.** Approved users click **+ Submit link** on the links page, then:
-   - choose a category and paste an invite link
+   - paste an invite link
    - press **Check** to fetch and preview the server's details (Submit stays disabled until the check passes, and the server refuses unchecked invites too)
-   - add a brief description and the source where the link was found, then press **Submit**
-4. **Browse.** The links page lists every submitted server. You can search it and filter by category.
-5. **Manage links (admins).** **Link management** (`/admin/links`) lists every link in a table with its server icon, server ID, category, and the submitter's name and email.
+   - add the source where the link was found, then press **Submit**
+4. **Browse.** The links page lists every submitted server in a table with its icon, name, Discord description, member and online counts, source and registration time. You can search by name, description or source.
+5. **Manage links (admins).** **Link management** (`/admin/links`) lists every link in a table with its server icon, server ID, member count, and the submitter's name and email.
    - **Filter** by submitter, or by a date range (**From** and **To** are both inclusive).
+   - **Joined** marks the server as joined; the button is then replaced by a ✓ Joined badge.
    - **Copy** copies the invite link to the clipboard.
    - **Delete** removes the link from the list. That server can never be submitted again.
-   - Tick **Show deleted** to see deleted links too.
+   - Tick **Show removed** to see deleted links too.
 
 These invite formats are accepted: `https://discord.gg/CODE`, `https://discord.com/invite/CODE`, `https://discordapp.com/invite/CODE`, or a bare `CODE`.
 
@@ -75,19 +76,20 @@ All endpoints except register and login need an approved session. The `/api/admi
 | GET | `/api/admin/users?status=pending` | List users, optionally filtered by `pending`, `approved` or `rejected` |
 | POST | `/api/admin/users/{id}/approve` | Approve a user |
 | POST | `/api/admin/users/{id}/reject` | Reject a user, or revoke their access |
-| GET | `/api/admin/links?submitter_id=&date_from=&date_to=&include_deleted=` | List links with submitter details. Dates are ISO 8601; `date_from` is inclusive and `date_to` is exclusive. |
+| GET | `/api/admin/links?submitter_id=&date_from=&date_to=&include_removed=` | List links with the submitting account (`register_account`). Dates filter `register_time`, are ISO 8601; `date_from` is inclusive and `date_to` is exclusive. |
 | GET | `/api/admin/submitters` | Users who have submitted at least one link, for the submitter filter |
+| POST | `/api/admin/links/{id}/joined` | Mark a link's server as joined (`joined` becomes `true`) |
 | DELETE | `/api/admin/links/{id}` | Delete a link. Its server stays permanently blocked from being submitted again. |
-| GET | `/api/links/categories` | The available categories |
-| GET | `/api/links?category=&q=` | List links, with an optional category filter and text search. Submitters are not included. |
+| GET | `/api/links?q=` | List links, with an optional text search. Submitters are not included. |
 | POST | `/api/links/check` | Look up an invite on Discord and return the server's details and `already_registered` |
-| POST | `/api/links` | Submit a link (`category`, `invite`, `description`, `source`). The invite must have been checked in this session within the last 30 minutes. Returns `409` if the server is already registered. |
+| POST | `/api/links` | Submit a link (`invite`, `source`). The invite must have been checked in this session within the last 30 minutes. Returns `409` if the server is already registered. |
 
 ## How it works
 
 - **Discord lookup.** Uses Discord's public invite endpoint, `GET https://discord.com/api/v10/invites/{code}?with_counts=true`. No bot token is needed.
+- **What's stored.** On submit, the invite is looked up on Discord again and the result is saved on the link: `guild_id`, `name`, `icon_url`, `description` (the server's own Discord description), `member_count`, `online_count`, `invite_url` and `expires_at`. The link also stores `source`, `joined` (false when submitted), `register_time`, `register_account` (the submitting user) and `removed`.
 - **Duplicates.** Detected by `guild_id`, which has a unique constraint in the database. That constraint also catches two people submitting the same server at the same moment.
-- **Deleting.** An admin's delete only hides the link: it sets `deleted_at` and keeps the row. Because `guild_id` stays taken, that server can't be submitted again with any invite, and Check reports that it was removed by an administrator.
+- **Deleting.** An admin's delete only hides the link: it sets `removed` and keeps the row. Because `guild_id` stays taken, that server can't be submitted again with any invite, and Check reports that it was removed by an administrator.
 - **Check before submit.** A successful Check is recorded in the user's signed session cookie. A submission is refused unless its invite was checked by that session within the last 30 minutes. The invite is looked up on Discord again when it's submitted, so an invite that expired in between is caught.
 - **Privacy.** Each link stores who submitted it. Only the admin endpoints and the Link management page show it; the link API that regular users see never returns it.
 - **Sessions.** Sessions are signed cookies, valid for 7 days. The user's approval status is checked again on every request.
@@ -110,7 +112,7 @@ app/
   config.py        settings from .env
   database.py      SQLAlchemy engine and session
   models.py        User and Link tables
-  schemas.py       request and response models, categories
+  schemas.py       request and response models
   migrations.py    startup schema upgrades for existing databases
   security.py      bcrypt password hashing
   deps.py          current-user and admin dependencies

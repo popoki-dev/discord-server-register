@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.deps import admin_user
 from app.models import Link, User, UserStatus
-from app.routers.links import link_fields
-from app.schemas import AdminLinkOut, Submitter, UserOut
+from app.schemas import AdminLinkOut, LinkOut, Submitter, UserOut
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -55,46 +54,58 @@ def reject_user(user_id: int, db: Session = Depends(get_db), admin: User = Depen
 
 def _admin_link(link: Link) -> AdminLinkOut:
     return AdminLinkOut(
-        **link_fields(link),
-        submitter=Submitter(id=link.submitter.id, full_name=link.submitter.full_name, email=link.submitter.email),
-        deleted_at=link.deleted_at,
+        **LinkOut.model_validate(link).model_dump(),
+        joined=link.joined,
+        register_account=Submitter.model_validate(link.submitter),
+        removed=link.removed,
     )
 
 
 @router.get("/links")
 def list_links(
     submitter_id: int | None = None,
-    date_from: datetime | None = Query(None, description="Submitted at or after (ISO 8601)"),
-    date_to: datetime | None = Query(None, description="Submitted before (ISO 8601, exclusive)"),
-    include_deleted: bool = False,
+    date_from: datetime | None = Query(None, description="Registered at or after (ISO 8601)"),
+    date_to: datetime | None = Query(None, description="Registered before (ISO 8601, exclusive)"),
+    include_removed: bool = False,
     db: Session = Depends(get_db),
     _: User = Depends(admin_user),
 ) -> list[AdminLinkOut]:
-    query = select(Link).options(joinedload(Link.submitter)).order_by(Link.created_at.desc())
-    if not include_deleted:
-        query = query.where(Link.deleted_at.is_(None))
+    query = select(Link).options(joinedload(Link.submitter)).order_by(Link.register_time.desc())
+    if not include_removed:
+        query = query.where(Link.removed.is_(False))
     if submitter_id is not None:
-        query = query.where(Link.submitted_by == submitter_id)
+        query = query.where(Link.register_account == submitter_id)
     if date_from is not None:
-        query = query.where(Link.created_at >= date_from)
+        query = query.where(Link.register_time >= date_from)
     if date_to is not None:
-        query = query.where(Link.created_at < date_to)
+        query = query.where(Link.register_time < date_to)
     return [_admin_link(link) for link in db.scalars(query)]
 
 
 @router.get("/submitters")
 def list_submitters(db: Session = Depends(get_db), _: User = Depends(admin_user)) -> list[Submitter]:
     """Users who have submitted at least one link, for the submitter filter."""
-    query = select(User).where(User.id.in_(select(Link.submitted_by))).order_by(User.full_name, User.email)
-    return [Submitter(id=u.id, full_name=u.full_name, email=u.email) for u in db.scalars(query)]
+    query = select(User).where(User.id.in_(select(Link.register_account))).order_by(User.full_name, User.email)
+    return [Submitter.model_validate(u) for u in db.scalars(query)]
+
+
+@router.post("/links/{link_id}/joined")
+def mark_joined(link_id: int, db: Session = Depends(get_db), _: User = Depends(admin_user)) -> AdminLinkOut:
+    """Record that the server has been joined. Clicking it again leaves it joined."""
+    link = db.get(Link, link_id, options=[joinedload(Link.submitter)])
+    if link is None or link.removed:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Link not found")
+    link.joined = True
+    db.commit()
+    return _admin_link(link)
 
 
 @router.delete("/links/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_link(link_id: int, db: Session = Depends(get_db), _: User = Depends(admin_user)) -> Response:
     """Soft-delete: the link disappears from the list, and its server can never be submitted again."""
     link = db.get(Link, link_id)
-    if link is None or link.deleted_at is not None:
+    if link is None or link.removed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Link not found")
-    link.deleted_at = func.now()
+    link.removed = True
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block main_class %}wide{% endblock %}
 {% block content %}
 <div class="page-head">
   <h1>Server links</h1>
@@ -7,13 +8,20 @@
 
 <div class="toolbar">
   <input type="search" id="search" placeholder="Search servers…" aria-label="Search servers">
-  <select id="category-filter" aria-label="Filter by category">
-    <option value="">All categories</option>
-  </select>
 </div>
 
-<p id="links-empty" class="empty muted" hidden>No links yet.</p>
-<div id="links-grid" class="grid"></div>
+<div class="card table-wrap">
+  <table class="table compact">
+    <thead>
+      <tr>
+        <th>Server</th><th>Description</th><th class="right">Members</th><th class="right">Online</th>
+        <th>Source</th><th>Registered</th><th class="right">Invite</th>
+      </tr>
+    </thead>
+    <tbody id="links-body"></tbody>
+  </table>
+  <p id="links-empty" class="empty muted" hidden>No links yet.</p>
+</div>
 
 <dialog id="submit-modal" class="modal">
   <form id="submit-form" class="stack" method="dialog">
@@ -21,10 +29,6 @@
       <h2>Submit a server link</h2>
       <button class="btn btn-ghost icon-btn" type="button" data-close aria-label="Close">✕</button>
     </div>
-
-    <label>Category
-      <select name="category" required><option value="" disabled selected>Choose a category</option></select>
-    </label>
 
     <label>Invite link
       <div class="input-row">
@@ -34,10 +38,6 @@
     </label>
 
     <div id="server-preview" class="preview" hidden></div>
-
-    <label>Brief description
-      <textarea name="description" rows="3" maxlength="500" required></textarea>
-    </label>
 
     <label>Source
       <input type="text" name="source" maxlength="255" placeholder="Where did you find this link? (e.g. a website URL)" required>

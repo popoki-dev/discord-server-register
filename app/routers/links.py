@@ -9,7 +9,7 @@ from app import discord
 from app.database import get_db
 from app.deps import current_user
 from app.models import Link, User
-from app.schemas import CATEGORIES, InviteCheckIn, LinkIn, LinkOut, ServerInfo
+from app.schemas import InviteCheckIn, LinkIn, LinkOut, ServerInfo
 
 router = APIRouter(prefix="/api/links", tags=["links"])
 
@@ -42,23 +42,8 @@ def _forget_check(request: Request, code: str) -> None:
     request.session[CHECKED_KEY] = checked
 
 
-def link_fields(link: Link) -> dict:
-    return dict(
-        id=link.id,
-        guild_id=link.guild_id,
-        guild_name=link.guild_name,
-        icon_url=discord.icon_url(link.guild_id, link.guild_icon),
-        member_count=link.member_count,
-        invite_url=discord.invite_url(link.invite_code),
-        category=link.category,
-        description=link.description,
-        source=link.source,
-        created_at=link.created_at,
-    )
-
-
 def _to_out(link: Link) -> LinkOut:
-    return LinkOut(**link_fields(link))
+    return LinkOut.model_validate(link)
 
 
 async def _lookup(invite: str) -> discord.GuildInfo:
@@ -78,27 +63,19 @@ def _existing(db: Session, guild_id: str) -> Link | None:
 
 
 def _conflict_message(link: Link) -> str:
-    return REMOVED_MESSAGE if link.deleted_at else DUPLICATE_MESSAGE
-
-
-@router.get("/categories")
-def categories(_: User = Depends(current_user)) -> list[str]:
-    return CATEGORIES
+    return REMOVED_MESSAGE if link.removed else DUPLICATE_MESSAGE
 
 
 @router.get("")
 def list_links(
-    category: str | None = None,
     q: str | None = Query(None, max_length=100),
     db: Session = Depends(get_db),
     _: User = Depends(current_user),
 ) -> list[LinkOut]:
-    query = select(Link).where(Link.deleted_at.is_(None)).order_by(Link.created_at.desc())
-    if category:
-        query = query.where(Link.category == category)
+    query = select(Link).where(Link.removed.is_(False)).order_by(Link.register_time.desc())
     if q:
         pattern = f"%{_escape_like(q)}%"
-        query = query.where(or_(Link.guild_name.ilike(pattern), Link.description.ilike(pattern)))
+        query = query.where(or_(Link.name.ilike(pattern), Link.description.ilike(pattern), Link.source.ilike(pattern)))
     return [_to_out(link) for link in db.scalars(query)]
 
 
@@ -120,7 +97,7 @@ async def check_invite(
         invite_url=info.invite_url,
         expires_at=info.expires_at,
         already_registered=existing is not None,
-        removed=existing is not None and existing.deleted_at is not None,
+        removed=existing is not None and existing.removed,
     )
 
 
@@ -142,16 +119,20 @@ async def create_link(
     if (existing := _existing(db, info.guild_id)) is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, _conflict_message(existing))
 
+    # Store what Check showed, as fetched from Discord just now.
     link = Link(
         guild_id=info.guild_id,
-        invite_code=info.invite_code,
-        category=body.category,
-        description=body.description,
-        source=body.source,
-        guild_name=info.name,
-        guild_icon=info.icon,
+        name=info.name,
+        icon_url=info.icon_url,
+        description=info.description,
         member_count=info.member_count,
-        submitted_by=user.id,
+        online_count=info.online_count,
+        invite_url=info.invite_url,
+        expires_at=info.expires_at,
+        source=body.source,
+        joined=False,
+        register_account=user.id,
+        removed=False,
     )
     db.add(link)
     try:
