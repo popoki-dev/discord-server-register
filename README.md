@@ -40,9 +40,9 @@ Open <http://localhost:8000>. The tables are created automatically on first star
 | Variable | Description |
 |---|---|
 | `POSTGRES_PASSWORD` | Password for the Docker PostgreSQL container. Required by `docker-compose.yml`. |
-| `DATABASE_URL` | SQLAlchemy URL, e.g. `postgresql+psycopg2://postgres:<password>@localhost:5432/discord_register` |
-| `SECRET_KEY` | Signs the session cookie. Use a long random value in production: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | If both are set, this admin account is created on startup when it doesn't already exist. Changing them later doesn't update an existing account. |
+| `DATABASE_URL` | **Required.** SQLAlchemy URL, e.g. `postgresql+psycopg2://postgres:<password>@localhost:5432/discord_register` |
+| `SECRET_KEY` | **Required.** Signs the session cookie. At least 32 random characters; the app refuses to start with a missing, short or placeholder value. Generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | `ADMIN_PASSWORD` must be at least 12 characters. If both are set, this admin account is created on startup when it doesn't already exist. Changing them later doesn't update an existing account. |
 | `ADMIN_NAME` | Full name for that admin account. Optional; defaults to `Administrator`. |
 
 ## Usage
