@@ -109,6 +109,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .icon-action:disabled { opacity: .5; cursor: not-allowed; }
 .icon-action.on, .icon-action.on:hover:not(:disabled) { color: var(--ok); border-color: var(--ok); }
 .icon-action.danger:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+.icon-action.restore:hover:not(:disabled) { color: var(--primary); border-color: var(--primary); }
 
 /* tabs */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }

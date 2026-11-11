@@ -59,6 +59,7 @@ function linkRow(link) {
     isAdmin ? el("td", { class: "right" }, linkActions(link, {
       admin: true,
       onDeleted: loadLinks,
+      onRestored: loadLinks,
       // Keep the Status column in step with the Joined/Unjoined toggle.
       onJoinedChange: (row) => row.querySelector(".status-cell").replaceChildren(statusBadge(link)),
     })) : null,

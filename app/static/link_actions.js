@@ -1,4 +1,4 @@
-// Icon action buttons for a link row, shown to admins only: Joined/Unjoined, Copy and Delete.
+// Icon action buttons for a link row, shown to admins only: Joined/Unjoined, Copy, Delete and Restore.
 
 const ICONS = {
   copy: [
@@ -22,6 +22,10 @@ const ICONS = {
     ["path", { d: "M19 8v6M22 11h-6" }],
   ],
   check: [["path", { d: "M20 6L9 17l-5-5" }]],
+  restore: [ // counter-clockwise arrow
+    ["path", { d: "M3 12a9 9 0 1 0 3-6.7L3 8" }],
+    ["path", { d: "M3 3v5h5" }],
+  ],
 };
 
 function icon(name) {
@@ -108,13 +112,28 @@ function deleteButton(link, onDeleted) {
   }, "danger");
 }
 
-// Deleted links can only be copied.
-function linkActions(link, { admin = false, onDeleted = () => {}, onJoinedChange } = {}) {
+function restoreButton(link, onRestored) {
+  return iconButton("restore", "Restore link", async () => {
+    if (!confirm(`Restore "${link.name}"?\n\nIt will be listed again.`)) return;
+    try {
+      await api(`/api/admin/links/${link.id}/restore`, { method: "POST" });
+      toast(`Restored ${link.name}`, "success");
+      onRestored();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }, "restore");
+}
+
+// Active links: Joined/Unjoined, Copy, Delete. Deleted links: Copy, Restore.
+function linkActions(link, { admin = false, onDeleted = () => {}, onRestored = () => {}, onJoinedChange } = {}) {
   if (!admin) return null;
-  const manage = !link.removed;
+  if (link.removed) {
+    return el("div", { class: "icon-actions" }, copyButton(link), restoreButton(link, onRestored));
+  }
   return el("div", { class: "icon-actions" },
-    manage ? joinedButton(link, onJoinedChange) : null,
+    joinedButton(link, onJoinedChange),
     copyButton(link),
-    manage ? deleteButton(link, onDeleted) : null,
+    deleteButton(link, onDeleted),
   );
 }

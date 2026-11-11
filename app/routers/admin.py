@@ -88,3 +88,14 @@ def delete_link(link_id: int, db: Session = Depends(get_db), _: User = Depends(a
     link.removed = True
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/links/{link_id}/restore")
+def restore_link(link_id: int, db: Session = Depends(get_db), _: User = Depends(admin_user)) -> AdminLinkOut:
+    """Undo a delete: the link is listed again and keeps its original details and submitter."""
+    link = db.get(Link, link_id, options=[joinedload(Link.submitter)])
+    if link is None or not link.removed:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deleted link not found")
+    link.removed = False
+    db.commit()
+    return admin_link_out(link)

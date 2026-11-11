@@ -28,6 +28,7 @@ def test_admin_links_require_admin(client, user):
     assert user.delete("/api/admin/links/1").status_code == 403
     assert user.post("/api/admin/links/1/joined").status_code == 403
     assert user.delete("/api/admin/links/1/joined").status_code == 403
+    assert user.post("/api/admin/links/1/restore").status_code == 403
 
 
 def test_admin_list_shows_server_and_submitter_details(user, admin):
@@ -166,3 +167,32 @@ def test_all_filters_combine(user, other_user, admin):
     admin.delete(f"/api/admin/links/{a}")
     assert ids(admin, **params) == []
     assert ids(admin, **{**params, "deletion": "deleted"}) == [a]
+
+
+def test_restore_deleted_link(user, admin):
+    link_id = add_link(user, "alpha")
+    admin.post(f"/api/admin/links/{link_id}/joined")
+    admin.delete(f"/api/admin/links/{link_id}")
+    r = admin.post(f"/api/admin/links/{link_id}/restore")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["removed"] is False
+    assert body["joined"] is True  # other fields are untouched
+    assert body["register_account"]["email"] == "user@example.com"
+    assert ids(admin) == [link_id]
+    assert [l["id"] for l in user.get("/api/links").json()] == [link_id]  # back in the submitter's list
+    assert ids(admin, deletion="deleted") == []
+
+
+def test_restore_requires_a_deleted_link(user, admin):
+    link_id = add_link(user, "alpha")
+    assert admin.post(f"/api/admin/links/{link_id}/restore").status_code == 404  # not deleted
+    assert admin.post("/api/admin/links/999999/restore").status_code == 404
+
+
+def test_restored_server_is_still_a_duplicate(user, other_user, admin):
+    link_id = add_link(user, "alpha")
+    admin.delete(f"/api/admin/links/{link_id}")
+    admin.post(f"/api/admin/links/{link_id}/restore")
+    r = other_user.post("/api/links/check", json={"invite": "alpha-other"})
+    assert r.json()["already_registered"] is True and r.json()["removed"] is False

@@ -58,7 +58,8 @@ Open <http://localhost:8000>. The tables are created automatically on first star
    - **Admins** see every link, plus the server ID, the status (Joined or Unjoined), the submitter's name and email, and an **Actions** column with three icon buttons:
      - **Joined/Unjoined** toggles whether the server has been joined (green when joined).
      - **Copy** copies the invite link to the clipboard.
-     - **Delete** removes the link from the list. That server can never be submitted again.
+     - **Delete** removes the link from the list. That server can't be submitted again.
+     - **Restore** (shown on deleted links, next to Copy) puts a deleted link back in the list, unchanged and with its original submitter.
    - **Filters**, in any combination:
      - **Server name or description** (text search)
      - **Submitter** (admins only)
@@ -84,7 +85,8 @@ All endpoints except register and login need an approved session. The `/api/admi
 | GET | `/api/admin/submitters` | Users who have submitted at least one link, for the submitter filter |
 | POST | `/api/admin/links/{id}/joined` | Mark a link's server as joined (`joined` becomes `true`) |
 | DELETE | `/api/admin/links/{id}/joined` | Mark a link's server as not joined (`joined` becomes `false`) |
-| DELETE | `/api/admin/links/{id}` | Delete a link. Its server stays permanently blocked from being submitted again. |
+| DELETE | `/api/admin/links/{id}` | Delete a link. Its server stays blocked from being submitted again. |
+| POST | `/api/admin/links/{id}/restore` | Restore a deleted link (`removed` becomes `false`). `404` if the link isn't deleted. |
 | GET | `/api/links?q=&submitter_id=&date_from=&date_to=&joined=&deletion=` | List links. Regular users get only their own links, without submitter details; admins get every link with the submitting account (`register_account`). `q` matches the server name or description. `submitter_id` and `joined` are admin-only (`403` otherwise), and only admins get the `joined` field. `date_from`/`date_to` filter the submission time stored in the database (`register_time`), are ISO 8601, and are inclusive/exclusive. `joined` is `all` (default), `joined` or `unjoined`. `deletion` is `active` (default, not deleted), `deleted` or `all`. |
 | POST | `/api/links/check` | Look up an invite on Discord and return the server's details and `already_registered` |
 | POST | `/api/links` | Submit a link (`invite`, `source`). The invite must have been checked in this session within the last 30 minutes. Returns `409` if the server is already registered. |
@@ -94,7 +96,7 @@ All endpoints except register and login need an approved session. The `/api/admi
 - **Discord lookup.** Uses Discord's public invite endpoint, `GET https://discord.com/api/v10/invites/{code}?with_counts=true`. No bot token is needed.
 - **What's stored.** On submit, the invite is looked up on Discord again and the result is saved on the link: `guild_id`, `name`, `icon_url`, `description` (the server's own Discord description), `member_count`, `online_count`, `invite_url` and `expires_at`. The link also stores `source`, `joined` (false when submitted), `register_time`, `register_account` (the submitting user) and `removed`.
 - **Duplicates.** Detected by `guild_id`, which has a unique constraint in the database. That constraint also catches two people submitting the same server at the same moment.
-- **Deleting.** An admin's delete only hides the link: it sets `removed` and keeps the row. Because `guild_id` stays taken, that server can't be submitted again with any invite, and Check reports that it was removed by an administrator.
+- **Deleting and restoring.** An admin's delete only hides the link: it sets `removed` and keeps the row. Because `guild_id` stays taken, that server can't be submitted again with any invite, and Check reports that it was removed by an administrator. Restore clears `removed`, so the same row is listed again with all its original data.
 - **Check before submit.** A successful Check is recorded in the user's signed session cookie. A submission is refused unless its invite was checked by that session within the last 30 minutes. The invite is looked up on Discord again when it's submitted, so an invite that expired in between is caught.
 - **Privacy.** The link list is scoped on the server: a regular user's request only ever returns links they submitted, and never includes submitter details. Check still reports when a server is already registered, without saying by whom.
 - **Sessions.** Sessions are signed cookies, valid for 7 days. The user's approval status is checked again on every request.
