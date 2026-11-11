@@ -1,22 +1,43 @@
 {% extends "base.html" %}
 {% block title %}User management · Discord Server Register{% endblock %}
 {% block content %}
-<div class="page-head"><h1>User management</h1></div>
+<div class="page-head">
+  <h1>User management</h1>
+  <button class="btn btn-primary" id="add-user-btn" type="button">+ Add user</button>
+</div>
 
 <div class="tabs" role="tablist" id="status-tabs">
-  <button class="tab active" data-status="pending" type="button">Pending <span class="count" data-count="pending"></span></button>
+  <button class="tab active" data-status="" type="button">All</button>
   <button class="tab" data-status="approved" type="button">Approved <span class="count" data-count="approved"></span></button>
   <button class="tab" data-status="rejected" type="button">Rejected <span class="count" data-count="rejected"></span></button>
-  <button class="tab" data-status="" type="button">All</button>
+  <button class="tab" data-status="pending" type="button">Pending <span class="count" data-count="pending"></span></button>
 </div>
 
 <p class="muted small list-meta" data-timezone-note></p>
 <div class="card table-wrap">
   <table class="table">
-    <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Applied</th><th>Reviewed</th><th class="right">Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Created</th><th>Reviewed</th><th class="right">Actions</th></tr></thead>
     <tbody id="users-body"></tbody>
   </table>
   <p id="users-empty" class="empty muted" hidden>No users in this list.</p>
 </div>
+
+<dialog id="add-user-modal" class="modal">
+  <form id="add-user-form" class="stack" method="dialog">
+    <div class="modal-head">
+      <h2>Add user</h2>
+      <button class="btn btn-ghost icon-btn" type="button" data-close aria-label="Close">✕</button>
+    </div>
+    <label>Email<input type="email" name="email" autocomplete="off" required></label>
+    <label>Password<input type="password" name="password" autocomplete="new-password" minlength="8" required>
+      <small class="muted">At least 8 characters. Give it to the user; they replace it, and set their name, when they first sign in.</small></label>
+    <label>Confirm password<input type="password" name="confirm" autocomplete="new-password" minlength="8" required></label>
+    <p class="form-error" hidden></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">Add user</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
 {% block scripts %}<script src="{{ static_url('admin.js') }}"></script>{% endblock %}

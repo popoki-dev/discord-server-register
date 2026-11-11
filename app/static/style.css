@@ -123,6 +123,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 
 /* auth */
 .auth-card { max-width: 420px; margin: 48px auto; padding: 8px 24px 24px; }
+.auth-card h1 { font-size: 1.4rem; margin: 16px 0 12px; }
 
 /* links */
 .link-head { display: flex; align-items: center; gap: 12px; }

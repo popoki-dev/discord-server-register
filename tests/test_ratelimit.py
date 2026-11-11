@@ -34,14 +34,6 @@ def test_successful_sign_ins_are_not_counted(client):
         assert client.post("/api/auth/login", json=ADMIN).status_code == 200
 
 
-def test_registrations_are_limited_per_address(client):
-    for i in range(5):
-        r = client.post("/api/auth/register", json={"email": f"new{i}@example.com", "password": PASSWORD, "full_name": "N"})
-        assert r.status_code == 201
-    r = client.post("/api/auth/register", json={"email": "new9@example.com", "password": PASSWORD, "full_name": "N"})
-    assert r.status_code == 429
-
-
 def test_checks_are_limited_per_user(user, other_user):
     for _ in range(20):
         assert user.post("/api/links/check", json={"invite": "alpha"}).status_code == 200

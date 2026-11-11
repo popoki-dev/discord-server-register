@@ -16,6 +16,12 @@ def _utc_iso(value: datetime) -> str:
 UTCDateTime = Annotated[datetime, PlainSerializer(_utc_iso, return_type=str)]
 
 
+def _bcrypt_limit(v: str) -> str:
+    if len(v.encode()) > 72:
+        raise ValueError("Password must be at most 72 bytes")
+    return v
+
+
 class Credentials(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
@@ -28,13 +34,23 @@ class Credentials(BaseModel):
     @field_validator("password")
     @classmethod
     def bcrypt_limit(cls, v: str) -> str:
-        if len(v.encode()) > 72:
-            raise ValueError("Password must be at most 72 bytes")
-        return v
+        return _bcrypt_limit(v)
 
 
-class RegisterIn(Credentials):
+class NewUserIn(Credentials):
+    """An account created by an administrator: an email and a first password, no name yet."""
+
+
+class SetupIn(BaseModel):
+    """First sign-in: the user picks their name and replaces the password the administrator gave them."""
+
     full_name: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=8)
+
+    @field_validator("password")
+    @classmethod
+    def bcrypt_limit(cls, v: str) -> str:
+        return _bcrypt_limit(v)
 
     @field_validator("full_name")
     @classmethod
@@ -51,6 +67,8 @@ class UserOut(BaseModel):
     full_name: str
     status: UserStatus
     is_admin: bool
+    # True until the user has set their name and their own password on first sign-in.
+    needs_setup: bool
     created_at: UTCDateTime
     reviewed_at: UTCDateTime | None
 

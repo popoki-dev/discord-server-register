@@ -77,9 +77,7 @@ def too_many(wait_seconds: int, what: str) -> HTTPException:
 # address (stops trying many accounts from one address).
 LOGIN_FAILURES_PER_EMAIL = RateLimiter(limit=10, window_seconds=15 * 60)
 LOGIN_FAILURES_PER_IP = RateLimiter(limit=30, window_seconds=15 * 60)
-# New applications per address.
-REGISTRATIONS_PER_IP = RateLimiter(limit=5, window_seconds=60 * 60)
 # Discord lookups per user, so one account can't get this server rate-limited by Discord.
 CHECKS_PER_USER = RateLimiter(limit=20, window_seconds=60)
 
-ALL_LIMITERS = (LOGIN_FAILURES_PER_EMAIL, LOGIN_FAILURES_PER_IP, REGISTRATIONS_PER_IP, CHECKS_PER_USER)
+ALL_LIMITERS = (LOGIN_FAILURES_PER_EMAIL, LOGIN_FAILURES_PER_IP, CHECKS_PER_USER)

@@ -11,12 +11,14 @@
   <header class="topbar">
     <a class="brand" href="/">Discord Server Register</a>
     {% if user %}
+    {% if not user.needs_setup %}
     <nav>
       <a href="/" class="{{ 'active' if page == 'links' }}">Links</a>
       {% if user.is_admin %}
       <a href="/admin" class="{{ 'active' if page == 'admin' }}">User management</a>
       {% endif %}
     </nav>
+    {% endif %}
     <div class="account">
       <span class="muted">{{ user.email }}</span>
       <button class="btn btn-ghost" id="logout-btn" type="button">Log out</button>

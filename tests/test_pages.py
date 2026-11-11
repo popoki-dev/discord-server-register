@@ -11,7 +11,8 @@ def test_pages_redirect_anonymous_users_to_login(client, path):
 def test_login_page_renders(client):
     r = client.get("/login")
     assert r.status_code == 200
-    assert 'id="register-form"' in r.text
+    assert 'id="login-form"' in r.text
+    assert 'id="register-form"' not in r.text  # accounts are created by administrators
 
 
 def test_logged_in_user_is_redirected_away_from_login(user):
@@ -44,8 +45,27 @@ def test_old_link_management_url_redirects_to_links_page(client, admin):
     assert 'href="/admin/links"' not in admin.get("/").text  # no separate nav entry any more
 
 
-def test_register_form_asks_for_full_name(client):
-    assert 'name="full_name"' in client.get("/login").text
+def test_admin_page_has_add_user_modal(admin):
+    page = admin.get("/admin").text
+    assert 'id="add-user-btn"' in page and 'id="add-user-form"' in page
+
+
+def test_new_user_is_sent_to_setup_until_it_is_done(client):
+    from tests.conftest import PASSWORD, make_user
+
+    make_user("fresh@example.com", full_name="")
+    assert client.post("/api/auth/login", json={"email": "fresh@example.com", "password": PASSWORD}).status_code == 200
+    for path in ("/", "/admin", "/login"):
+        r = client.get(path, follow_redirects=True)
+        assert r.url.path == "/setup" and 'id="setup-form"' in r.text, path
+    assert "<nav>" not in client.get("/setup").text  # no links to pages that would bounce back here
+    client.post("/api/auth/setup", json={"full_name": "Fresh Person", "password": "my-own-password"})
+    assert client.get("/setup", follow_redirects=False).headers["location"] == "/"
+    assert client.get("/").status_code == 200
+
+
+def test_setup_page_needs_sign_in(client):
+    assert client.get("/setup", follow_redirects=False).headers["location"] == "/login"
 
 
 def test_one_links_page_with_admin_only_extras(user, admin):

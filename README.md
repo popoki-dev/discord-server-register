@@ -2,7 +2,7 @@
 
 A small web service for collecting and sharing Discord server invite links, built with FastAPI and PostgreSQL.
 
-- **Approval-gated accounts.** Users apply with an email and password. An administrator approves or rejects each application, and only approved users can use the service.
+- **Admin-created accounts.** There's no public sign-up. An administrator adds each user with an email and a first password. On their first sign-in, the user must set their name and replace that password before they can do anything else.
 - **Verified submissions.** Each invite is looked up on Discord with the **Check** button before it can be submitted. The server's `guild_id`, name, icon and member count are fetched from Discord.
 - **No duplicates.** Each Discord server can be registered only once, even when it's submitted with a different invite code.
 - **Private by default.** Each user sees only the links they submitted. Admins see every link and who submitted it.
@@ -49,9 +49,9 @@ Open <http://localhost:8000>. The tables are created automatically on first star
 
 ## Usage
 
-1. **Apply.** On the **Register** tab of `/login`, enter your full name, email and a password (at least 8 characters).
-2. **Approve.** Sign in as the admin and open **User management** (`/admin`). Approve or reject applications under the Pending tab. Rejecting an approved user revokes their access immediately.
-3. **Submit links.** Approved users click **+ Submit link** on the links page, then:
+1. **Add a user.** Sign in as the admin, open **User management** (`/admin`) and click **+ Add user**. Enter the user's email and a password (at least 8 characters), then give both to the user. Until they sign in, their name shows as *Not signed in yet*. **Reject** revokes a user's access immediately; **Approve** gives it back.
+2. **First sign-in.** The user signs in with that email and password. Because their name is still empty, they're taken to **Set up your account** first, where they enter their full name and choose a new password. Nothing else is available until that's done. Afterwards the admin's password no longer works.
+3. **Submit links.** Users click **+ Submit link** on the links page, then:
    - paste an invite link
    - press **Check** to fetch and preview the server's details (Submit stays disabled until the check passes, and the server refuses unchecked invites too)
    - add the source where the link was found, then press **Submit**
@@ -73,14 +73,15 @@ These invite formats are accepted: `https://discord.gg/CODE`, `https://discord.c
 
 ## API
 
-All endpoints except register and login need an approved session. The `/api/admin` endpoints also need an admin account. Interactive docs are at `/docs` when `ENABLE_API_DOCS=true`.
+All endpoints except login need an approved session, and all except `setup`, `me` and `logout` also need first-time setup to be finished (`403` until then). The `/api/admin` endpoints also need an admin account. Interactive docs are at `/docs` when `ENABLE_API_DOCS=true`.
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/auth/register` | Apply for an account (`email`, `full_name`, `password`). The response is the same whether or not the email is already registered. |
 | POST | `/api/auth/login` | Sign in. Pending or rejected users get `403`. |
 | POST | `/api/auth/logout` | Sign out |
-| GET | `/api/auth/me` | The current user |
+| POST | `/api/auth/setup` | First sign-in only: set `full_name` and a new `password` (must differ from the one the admin set). Signs out other sessions. `409` once the account is set up. |
+| GET | `/api/auth/me` | The current user, including `needs_setup` |
+| POST | `/api/admin/users` | Add a user (`email`, `password`). The account is approved, has no name yet and must finish setup on first sign-in. `409` if the email is taken. |
 | GET | `/api/admin/users?status=pending` | List users, optionally filtered by `pending`, `approved` or `rejected` |
 | POST | `/api/admin/users/{id}/approve` | Approve a user |
 | POST | `/api/admin/users/{id}/reject` | Reject a user, or revoke their access |
@@ -102,7 +103,7 @@ All endpoints except register and login need an approved session. The `/api/admi
 - **Check before submit.** A successful Check is recorded in the user's signed session cookie. A submission is refused unless its invite was checked by that session within the last 30 minutes. The invite is looked up on Discord again when it's submitted, so an invite that expired in between is caught.
 - **Privacy.** The link list is scoped on the server: a regular user's request only ever returns links they submitted, and never includes submitter details. Check still reports when a server is already registered, without saying by whom.
 - **Times.** Times are stored as `timestamp with time zone` and set by the database server's clock (`now()`), not the browser's. Database sessions run in UTC, and the API always sends times as UTC ISO 8601 ending in `Z`. The pages convert them to the viewer's own time zone, name that zone, and show the UTC time on hover. The **Submitted from / to** filters use the viewer's local calendar days.
-- **Rate limits.** Failed sign-ins are limited to 10 per account and 30 per IP address per 15 minutes. After that, sign-in is refused with `429` and a `Retry-After` header, even with the right password, until the window passes. New applications are limited to 5 per IP per hour, and Check to 20 per user per minute, so one account can't get this server rate-limited by Discord. Limits are kept in memory per server process. Behind a reverse proxy, run uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy IP>` so the limits see the visitor's IP address, not the proxy's.
+- **Rate limits.** Failed sign-ins are limited to 10 per account and 30 per IP address per 15 minutes. After that, sign-in is refused with `429` and a `Retry-After` header, even with the right password, until the window passes. Check is limited to 20 per user per minute, so one account can't get this server rate-limited by Discord. Limits are kept in memory per server process. Behind a reverse proxy, run uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy IP>` so the limits see the visitor's IP address, not the proxy's.
 - **Sessions.** Sessions are signed cookies, valid for 7 days. The user's approval status is checked again on every request.
 
 ## Tests
@@ -129,8 +130,8 @@ app/
   deps.py          current-user and admin dependencies
   discord.py       invite parsing and Discord lookup
   routers/
-    auth.py        register, login, logout, me
-    admin.py       user approval, link actions (joined, delete)
+    auth.py        login, first-time setup, logout, me
+    admin.py       adding users, approval, link actions (joined, delete)
     links.py       check, submit, list (scoped per user)
     pages.py       HTML page routes
   templates/       Jinja2 HTML pages

@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import admin_user
 from app.models import Link, User, UserStatus
 from app.routers.links import admin_link_out
-from app.schemas import AdminLinkOut, Submitter, UserOut
+from app.schemas import AdminLinkOut, NewUserIn, Submitter, UserOut
+from app.security import hash_password
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -21,6 +23,25 @@ def list_users(
     if status_filter is not None:
         query = query.where(User.status == status_filter)
     return [UserOut.model_validate(u) for u in db.scalars(query)]
+
+
+EMAIL_TAKEN = "A user with this email already exists"
+
+
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+def create_user(body: NewUserIn, db: Session = Depends(get_db), _: User = Depends(admin_user)) -> UserOut:
+    """Create an approved account. The user sets their name and their own password on first sign-in."""
+    if db.scalar(select(User).where(User.email == body.email)) is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, EMAIL_TAKEN)
+    user = User(email=body.email, full_name="", password_hash=hash_password(body.password), status=UserStatus.approved)
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:  # created by another admin at the same moment
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, EMAIL_TAKEN) from None
+    db.refresh(user)
+    return UserOut.model_validate(user)
 
 
 def _set_status(user_id: int, new_status: UserStatus, admin: User, db: Session) -> UserOut:

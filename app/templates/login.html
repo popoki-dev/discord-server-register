@@ -2,29 +2,14 @@
 {% block title %}Sign in · Discord Server Register{% endblock %}
 {% block content %}
 <section class="auth-card card">
-  <div class="tabs" role="tablist">
-    <button class="tab active" data-tab="login" role="tab" type="button">Sign in</button>
-    <button class="tab" data-tab="register" role="tab" type="button">Register</button>
-  </div>
-
-  <form id="login-form" class="stack" data-panel="login">
+  <h1>Sign in</h1>
+  <form id="login-form" class="stack">
     <label>Email<input type="email" name="email" autocomplete="email" required></label>
     <label>Password<input type="password" name="password" autocomplete="current-password" minlength="8" required></label>
     <p class="form-error" hidden></p>
     <button class="btn btn-primary" type="submit">Sign in</button>
   </form>
-
-  <form id="register-form" class="stack" data-panel="register" hidden>
-    <p class="muted">Apply for an account. An administrator must approve your application before you can sign in.</p>
-    <label>Full name<input type="text" name="full_name" autocomplete="name" maxlength="100" required></label>
-    <label>Email<input type="email" name="email" autocomplete="email" required></label>
-    <label>Password<input type="password" name="password" autocomplete="new-password" minlength="8" required>
-      <small class="muted">At least 8 characters.</small></label>
-    <label>Confirm password<input type="password" name="confirm" autocomplete="new-password" minlength="8" required></label>
-    <p class="form-error" hidden></p>
-    <p class="form-success" hidden></p>
-    <button class="btn btn-primary" type="submit">Submit application</button>
-  </form>
+  <p class="muted small">Accounts are created by an administrator. Ask one for your email and password.</p>
 </section>
 {% endblock %}
 {% block scripts %}<script src="{{ static_url('login.js') }}"></script>{% endblock %}

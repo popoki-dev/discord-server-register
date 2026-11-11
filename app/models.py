@@ -32,6 +32,11 @@ class User(Base):
 
     links: Mapped[list["Link"]] = relationship(back_populates="submitter")
 
+    @property
+    def needs_setup(self) -> bool:
+        """Accounts created by an administrator have no name until the user signs in and sets one."""
+        return not self.full_name
+
 
 class Link(Base):
     """A registered Discord server. The server details are captured from Discord when it's submitted."""
