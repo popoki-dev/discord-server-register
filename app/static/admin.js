@@ -46,8 +46,8 @@ async function loadUsers() {
     el("td", { text: u.full_name || "—" }),
     el("td", { text: u.email }),
     el("td", {}, statusBadge(u.status)),
-    el("td", { class: "small", text: formatDate(u.created_at) }),
-    el("td", { class: "small", text: formatDate(u.reviewed_at) }),
+    el("td", { class: "small nowrap" }, timeEl(u.created_at)),
+    el("td", { class: "small nowrap" }, timeEl(u.reviewed_at)),
     el("td", { class: "right" }, actionButtons(u)),
   )));
   emptyMsg.hidden = users.length > 0;

@@ -189,7 +189,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .nowrap { white-space: nowrap; }
 .row-deleted td { opacity: .6; }
 .row-deleted td:last-child { opacity: 1; }
-#result-count { margin: 0 0 8px; }
+.list-meta { margin: 0 0 8px; }
 .container.wide { max-width: 1440px; }
 .table.compact th, .table.compact td { padding: 10px 12px; }
 .table.compact .actions { flex-wrap: nowrap; }

@@ -99,6 +99,7 @@ All endpoints except register and login need an approved session. The `/api/admi
 - **Deleting and restoring.** An admin's delete only hides the link: it sets `removed` and keeps the row. Because `guild_id` stays taken, that server can't be submitted again with any invite, and Check reports that it was removed by an administrator. Restore clears `removed`, so the same row is listed again with all its original data.
 - **Check before submit.** A successful Check is recorded in the user's signed session cookie. A submission is refused unless its invite was checked by that session within the last 30 minutes. The invite is looked up on Discord again when it's submitted, so an invite that expired in between is caught.
 - **Privacy.** The link list is scoped on the server: a regular user's request only ever returns links they submitted, and never includes submitter details. Check still reports when a server is already registered, without saying by whom.
+- **Times.** Times are stored as `timestamp with time zone` and set by the database server's clock (`now()`), not the browser's. Database sessions run in UTC, and the API always sends times as UTC ISO 8601 ending in `Z`. The pages convert them to the viewer's own time zone, name that zone, and show the UTC time on hover. The **Submitted from / to** filters use the viewer's local calendar days.
 - **Sessions.** Sessions are signed cookies, valid for 7 days. The user's approval status is checked again on every request.
 
 ## Tests

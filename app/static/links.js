@@ -28,7 +28,7 @@ function serverCell(link) {
       el("span", { class: "strong", text: link.name }),
       link.removed ? el("span", { class: "badge badge-rejected", text: "deleted" }) : null,
       isAdmin ? el("div", { class: "mono small muted", text: link.guild_id, title: "Server ID" }) : null,
-      link.expires_at ? el("div", { class: "warn small", text: `Invite expires ${formatDate(link.expires_at)}` }) : null,
+      link.expires_at ? el("div", { class: "warn small" }, "Invite expires ", timeEl(link.expires_at)) : null,
     ),
   );
 }
@@ -51,7 +51,7 @@ function linkRow(link) {
     el("td", { class: "right nowrap", text: formatNumber(link.online_count) }),
     el("td", { class: "small source-cell" }, source),
     isAdmin ? el("td", { class: "status-cell" }, statusBadge(link)) : null,
-    el("td", { class: "small nowrap", text: formatDate(link.register_time) }),
+    el("td", { class: "small nowrap" }, timeEl(link.register_time)),
     isAdmin ? el("td", {},
       el("div", { text: link.register_account.full_name || "—" }),
       el("div", { class: "small muted", text: link.register_account.email }),
@@ -160,7 +160,7 @@ function renderPreview(info) {
     ),
     info.description ? el("p", { class: "small", text: info.description }) : null,
     el("div", { class: "muted small", text: `Server ID: ${info.guild_id}` }),
-    info.expires_at ? el("div", { class: "warn small", text: `⚠ This invite expires on ${formatDate(info.expires_at)}. Consider using a permanent invite.` }) : null,
+    info.expires_at ? el("div", { class: "warn small" }, "⚠ This invite expires on ", timeEl(info.expires_at), ". Consider using a permanent invite.") : null,
     info.already_registered
       ? el("div", { class: "error small strong", text: info.removed
           ? "This server was removed by an administrator and cannot be submitted again."

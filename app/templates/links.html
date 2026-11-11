@@ -40,7 +40,7 @@
   <button class="btn btn-ghost" type="reset">Clear</button>
 </form>
 
-<p class="muted small" id="result-count"></p>
+<p class="muted small list-meta"><span id="result-count"></span> · <span data-timezone-note></span></p>
 <div class="card table-wrap">
   <table class="table compact" id="links-table" data-admin="{{ 'true' if user.is_admin else 'false' }}">
     <thead>
