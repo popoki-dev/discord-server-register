@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import time
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,6 +14,31 @@ from app.schemas import CATEGORIES, InviteCheckIn, LinkIn, LinkOut, ServerInfo
 router = APIRouter(prefix="/api/links", tags=["links"])
 
 DUPLICATE_MESSAGE = "This server has already been registered"
+NOT_CHECKED_MESSAGE = "Please press \"Check\" to verify the invite link before submitting"
+
+# Invites this session has verified with "Check": {invite_code: unix_time}.
+CHECKED_KEY = "checked_invites"
+CHECK_TTL_SECONDS = 30 * 60
+MAX_CHECKED = 10
+
+
+def _remember_check(request: Request, code: str) -> None:
+    now = int(time.time())
+    checked = {c: t for c, t in request.session.get(CHECKED_KEY, {}).items() if now - t < CHECK_TTL_SECONDS}
+    checked[code] = now
+    # Keep the cookie small: only the most recent checks.
+    request.session[CHECKED_KEY] = dict(sorted(checked.items(), key=lambda kv: kv[1])[-MAX_CHECKED:])
+
+
+def _was_checked(request: Request, code: str) -> bool:
+    checked_at = request.session.get(CHECKED_KEY, {}).get(code)
+    return checked_at is not None and time.time() - checked_at < CHECK_TTL_SECONDS
+
+
+def _forget_check(request: Request, code: str) -> None:
+    checked = dict(request.session.get(CHECKED_KEY, {}))
+    checked.pop(code, None)
+    request.session[CHECKED_KEY] = checked
 
 
 def _to_out(link: Link) -> LinkOut:
@@ -67,9 +94,12 @@ def list_links(
 
 @router.post("/check")
 async def check_invite(
-    body: InviteCheckIn, db: Session = Depends(get_db), _: User = Depends(current_user)
+    body: InviteCheckIn, request: Request, db: Session = Depends(get_db), _: User = Depends(current_user)
 ) -> ServerInfo:
     info = await _lookup(body.invite)
+    registered = _is_registered(db, info.guild_id)
+    if not registered:
+        _remember_check(request, discord.parse_invite_code(body.invite))
     return ServerInfo(
         guild_id=info.guild_id,
         name=info.name,
@@ -79,15 +109,24 @@ async def check_invite(
         online_count=info.online_count,
         invite_url=info.invite_url,
         expires_at=info.expires_at,
-        already_registered=_is_registered(db, info.guild_id),
+        already_registered=registered,
     )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_link(
-    body: LinkIn, db: Session = Depends(get_db), user: User = Depends(current_user)
+    body: LinkIn, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> LinkOut:
-    # Always resolve server-side: the guild_id comes from Discord, never from the client.
+    # The invite must have passed "Check" in this session first.
+    try:
+        code = discord.parse_invite_code(body.invite)
+    except discord.InviteError as e:
+        raise HTTPException(e.status_code, e.message)
+    if not _was_checked(request, code):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, NOT_CHECKED_MESSAGE)
+
+    # Resolve again server-side: the guild_id comes from Discord, never from the client,
+    # and the invite may have expired since it was checked.
     info = await _lookup(body.invite)
     if _is_registered(db, info.guild_id):
         raise HTTPException(status.HTTP_409_CONFLICT, DUPLICATE_MESSAGE)
@@ -110,4 +149,5 @@ async def create_link(
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, DUPLICATE_MESSAGE)
     db.refresh(link)
+    _forget_check(request, code)
     return _to_out(link)
