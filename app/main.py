@@ -8,7 +8,7 @@ from app import models  # noqa: F401  (registers tables on Base.metadata)
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import User, UserStatus
-from app.routers import admin, auth
+from app.routers import admin, auth, links
 from app.security import hash_password
 
 
@@ -48,6 +48,7 @@ app.add_middleware(
 )
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(links.router)
 
 
 @app.get("/health")
