@@ -127,7 +127,8 @@ def clean_db(schema):
 
 
 def _client() -> TestClient:
-    return TestClient(app)
+    # HTTPS, so the Secure session cookie is sent back just as a browser would.
+    return TestClient(app, base_url="https://testserver")
 
 
 @pytest.fixture

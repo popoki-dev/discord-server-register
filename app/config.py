@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     admin_email: str | None = None
     admin_name: str = "Administrator"
     admin_password: str | None = None
+    # Mark the session cookie Secure (sent over HTTPS only). Browsers also accept Secure cookies on
+    # http://localhost; set to false only to test over plain HTTP on another address, e.g. a LAN IP.
+    session_https_only: bool = True
+    # Interactive API docs at /docs, /redoc and /openapi.json. Off by default: they list every endpoint.
+    enable_api_docs: bool = False
 
     @field_validator("secret_key")
     @classmethod

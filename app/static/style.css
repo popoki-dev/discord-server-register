@@ -31,6 +31,7 @@
 }
 
 * { box-sizing: border-box; }
+.offscreen { position: fixed; left: -9999px; top: 0; opacity: 0; }
 [hidden] { display: none !important; }
 body {
   margin: 0;

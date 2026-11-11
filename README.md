@@ -43,6 +43,8 @@ Open <http://localhost:8000>. The tables are created automatically on first star
 | `DATABASE_URL` | **Required.** SQLAlchemy URL, e.g. `postgresql+psycopg2://postgres:<password>@localhost:5432/discord_register` |
 | `SECRET_KEY` | **Required.** Signs the session cookie. At least 32 random characters; the app refuses to start with a missing, short or placeholder value. Generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | `ADMIN_PASSWORD` must be at least 12 characters. If both are set, this admin account is created on startup when it doesn't already exist. Changing them later doesn't update an existing account. |
+| `SESSION_HTTPS_ONLY` | Mark the session cookie `Secure` so it's only sent over HTTPS. Default `true`. Browsers also accept it on `http://localhost`; set `false` only to try the app over plain HTTP on another address, such as a LAN IP. |
+| `ENABLE_API_DOCS` | Serve the interactive API docs at `/docs`, `/redoc` and `/openapi.json`. Default `false`. |
 | `ADMIN_NAME` | Full name for that admin account. Optional; defaults to `Administrator`. |
 
 ## Usage
@@ -71,7 +73,7 @@ These invite formats are accepted: `https://discord.gg/CODE`, `https://discord.c
 
 ## API
 
-All endpoints except register and login need an approved session. The `/api/admin` endpoints also need an admin account. Interactive docs are at `/docs`.
+All endpoints except register and login need an approved session. The `/api/admin` endpoints also need an admin account. Interactive docs are at `/docs` when `ENABLE_API_DOCS=true`.
 
 | Method | Path | Description |
 |---|---|---|
