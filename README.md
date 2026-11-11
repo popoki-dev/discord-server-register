@@ -1,1 +1,1 @@
-# discord-server-register
+# Discord Server Register
