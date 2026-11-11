@@ -13,6 +13,7 @@ from app.migrations import upgrade
 from app.models import User, UserStatus
 from app.routers import admin, auth, links, pages
 from app.security import hash_password
+from app.security_headers import SecurityHeadersMiddleware
 
 
 def ensure_admin() -> None:
@@ -47,14 +48,17 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Discord Server Register", lifespan=lifespan)
+docs = {} if settings.enable_api_docs else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+app = FastAPI(title="Discord Server Register", lifespan=lifespan, **docs)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.secret_key,
     session_cookie="dsr_session",
     max_age=60 * 60 * 24 * 7,
     same_site="lax",
+    https_only=settings.session_https_only,
 )
+app.add_middleware(SecurityHeadersMiddleware, enable_api_docs=settings.enable_api_docs)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(links.router)

@@ -9,6 +9,7 @@ from sqlalchemy.engine import Connection, Engine
 
 USERS_UPGRADES = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(100) NOT NULL DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0",
 ]
 
 # Converts the original links table (guild_name, guild_icon, invite_code, category, a

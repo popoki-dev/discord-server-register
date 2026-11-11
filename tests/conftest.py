@@ -118,6 +118,14 @@ def schema():
 
 
 @pytest.fixture(autouse=True)
+def reset_rate_limits():
+    from app.ratelimit import ALL_LIMITERS
+
+    for limiter in ALL_LIMITERS:
+        limiter.reset()
+
+
+@pytest.fixture(autouse=True)
 def clean_db(schema):
     tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
     with engine.begin() as conn:
@@ -127,7 +135,8 @@ def clean_db(schema):
 
 
 def _client() -> TestClient:
-    return TestClient(app)
+    # HTTPS, so the Secure session cookie is sent back just as a browser would.
+    return TestClient(app, base_url="https://testserver")
 
 
 @pytest.fixture
@@ -144,14 +153,13 @@ def admin():
 
 
 def make_user(email: str, status: UserStatus = UserStatus.approved, full_name: str | None = None) -> None:
-    full_name = full_name or email.split("@")[0].title()
-    with _client() as c:
-        r = c.post("/api/auth/register", json={"email": email, "password": PASSWORD, "full_name": full_name})
-        assert r.status_code == 201
+    """A user who has already finished first-time setup (pass full_name="" for one who hasn't)."""
     from app.database import SessionLocal
+    from app.security import hash_password
 
+    full_name = email.split("@")[0].title() if full_name is None else full_name
     with SessionLocal() as db:
-        db.query(User).filter_by(email=email).update({"status": status})
+        db.add(User(email=email, full_name=full_name, password_hash=hash_password(PASSWORD), status=status))
         db.commit()
 
 

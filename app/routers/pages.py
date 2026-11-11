@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User, UserStatus
+from app.sessions import session_account
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
@@ -33,27 +34,35 @@ templates.env.globals["static_url"] = static_url
 
 
 def session_user(request: Request, db: Session) -> User | None:
-    user_id = request.session.get("user_id")
-    user = db.get(User, user_id) if user_id else None
+    user = session_account(request, db)
     if user is None or user.status != UserStatus.approved:
         request.session.clear()
         return None
     return user
 
 
+def _redirect_if_not_ready(user: User | None) -> RedirectResponse | None:
+    """Pages need a signed-in user who has finished first-time setup."""
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    if user.needs_setup:
+        return RedirectResponse("/setup", status_code=303)
+    return None
+
+
 @router.get("/")
 def links_page(request: Request, db: Session = Depends(get_db)):
     user = session_user(request, db)
-    if user is None:
-        return RedirectResponse("/login", status_code=303)
+    if redirect := _redirect_if_not_ready(user):
+        return redirect
     return templates.TemplateResponse(request, "links.html", {"user": user, "page": "links"})
 
 
 @router.get("/admin")
 def admin_page(request: Request, db: Session = Depends(get_db)):
     user = session_user(request, db)
-    if user is None:
-        return RedirectResponse("/login", status_code=303)
+    if redirect := _redirect_if_not_ready(user):
+        return redirect
     if not user.is_admin:
         return RedirectResponse("/", status_code=303)
     return templates.TemplateResponse(request, "admin.html", {"user": user, "page": "admin"})
@@ -64,6 +73,25 @@ def login_page(request: Request, db: Session = Depends(get_db)):
     if session_user(request, db):
         return RedirectResponse("/", status_code=303)
     return templates.TemplateResponse(request, "login.html", {"user": None, "page": "login"})
+
+
+@router.get("/account")
+def account_page(request: Request, db: Session = Depends(get_db)):
+    user = session_user(request, db)
+    if redirect := _redirect_if_not_ready(user):
+        return redirect
+    return templates.TemplateResponse(request, "account.html", {"user": user, "page": "account"})
+
+
+@router.get("/setup")
+def setup_page(request: Request, db: Session = Depends(get_db)):
+    """First sign-in: the user sets their name and replaces the password the administrator gave them."""
+    user = session_user(request, db)
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    if not user.needs_setup:
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(request, "setup.html", {"user": user, "page": "setup"})
 
 
 @router.get("/admin/links")

@@ -26,8 +26,16 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Stored in the session cookie at login. Logging out increments it, which invalidates every
+    # cookie issued before, including copies on other devices or stolen ones.
+    session_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     links: Mapped[list["Link"]] = relationship(back_populates="submitter")
+
+    @property
+    def needs_setup(self) -> bool:
+        """Accounts created by an administrator have no name until the user signs in and sets one."""
+        return not self.full_name
 
 
 class Link(Base):

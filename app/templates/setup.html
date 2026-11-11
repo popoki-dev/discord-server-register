@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Set up your account · Discord Server Register{% endblock %}
+{% block content %}
+<section class="auth-card card">
+  <h1>Set up your account</h1>
+  <p class="muted">Welcome! Before you continue, enter your name and replace the password you were given with one only you know.</p>
+  <form id="setup-form" class="stack">
+    <label>Full name<input type="text" name="full_name" autocomplete="name" maxlength="100" required></label>
+    <label>New password<input type="password" name="password" autocomplete="new-password" minlength="8" required>
+      <small class="muted">At least 8 characters, different from the one you were given.</small></label>
+    <label>Confirm new password<input type="password" name="confirm" autocomplete="new-password" minlength="8" required></label>
+    <p class="form-error" hidden></p>
+    <button class="btn btn-primary" type="submit">Save and continue</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ static_url('setup.js') }}"></script>{% endblock %}

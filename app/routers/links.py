@@ -11,6 +11,7 @@ from app import discord
 from app.database import get_db
 from app.deps import current_user
 from app.models import Link, User
+from app.ratelimit import CHECKS_PER_USER, too_many
 from app.schemas import AdminLinkOut, InviteCheckIn, LinkIn, LinkOut, ServerInfo, Submitter
 
 router = APIRouter(prefix="/api/links", tags=["links"])
@@ -120,8 +121,10 @@ def list_links(
 
 @router.post("/check")
 async def check_invite(
-    body: InviteCheckIn, request: Request, db: Session = Depends(get_db), _: User = Depends(current_user)
+    body: InviteCheckIn, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
 ) -> ServerInfo:
+    if wait := CHECKS_PER_USER.hit(str(user.id)):
+        raise too_many(wait, "checks")
     info = await _lookup(body.invite)
     existing = _existing(db, info.guild_id)
     if existing is None:

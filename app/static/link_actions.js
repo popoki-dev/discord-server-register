@@ -54,7 +54,7 @@ async function copyText(text) {
     await navigator.clipboard.writeText(text);
   } catch {
     // Fallback where the async clipboard API is unavailable (e.g. plain http on a LAN IP).
-    const area = el("textarea", { readonly: true, style: "position:fixed;opacity:0" });
+    const area = el("textarea", { readonly: true, class: "offscreen" });
     area.value = text;
     document.body.append(area);
     area.select();
