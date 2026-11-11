@@ -58,3 +58,28 @@ def test_one_links_page_with_admin_only_extras(user, admin):
     assert 'name="submitter_id"' in page and ">Actions</th>" in page and ">Submitter</th>" in page
     assert 'name="joined"' in page and ">Status</th>" in page
     assert 'data-admin="true"' in page
+
+
+def test_static_urls_carry_a_content_hash(user):
+    import re
+
+    page = user.get("/").text
+    urls = re.findall(r'(?:src|href)="(/static/[^"]+)"', page)
+    assert {u.split("?")[0] for u in urls} >= {"/static/common.js", "/static/links.js", "/static/link_actions.js", "/static/style.css"}
+    assert all(re.search(r"\?v=[0-9a-f]{12}$", u) for u in urls), urls
+    for u in urls:
+        assert user.get(u).status_code == 200
+
+
+def test_static_url_changes_when_the_file_changes(tmp_path, monkeypatch):
+    import os
+
+    from app.routers import pages
+
+    monkeypatch.setattr(pages, "STATIC_DIR", tmp_path)
+    (tmp_path / "x.js").write_text("one")
+    first = pages.static_url("x.js")
+    (tmp_path / "x.js").write_text("two")
+    os.utime(tmp_path / "x.js", ns=(1, 1))  # force a different mtime
+    assert pages.static_url("x.js") != first
+    assert pages.static_url("missing.js") == "/static/missing.js"

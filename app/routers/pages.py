@@ -1,3 +1,5 @@
+import hashlib
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -10,6 +12,24 @@ from app.models import User, UserStatus
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+
+@lru_cache(maxsize=256)
+def _file_hash(path: Path, mtime_ns: int) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+
+
+def static_url(name: str) -> str:
+    """URL for a static file with a content hash, so browsers fetch it again whenever it changes."""
+    path = STATIC_DIR / name
+    try:
+        return f"/static/{name}?v={_file_hash(path, path.stat().st_mtime_ns)}"
+    except FileNotFoundError:
+        return f"/static/{name}"
+
+
+templates.env.globals["static_url"] = static_url
 
 
 def session_user(request: Request, db: Session) -> User | None:
