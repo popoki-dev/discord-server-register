@@ -5,7 +5,7 @@ A small web service for collecting and sharing Discord server invite links, buil
 - **Approval-gated accounts.** Users apply with an email and password. An administrator approves or rejects each application, and only approved users can use the service.
 - **Verified submissions.** Each invite is looked up on Discord with the **Check** button before it can be submitted. The server's `guild_id`, name, icon and member count are fetched from Discord.
 - **No duplicates.** Each Discord server can be registered only once, even when it's submitted with a different invite code.
-- **Hidden submitters.** Users can browse every submitted link, but who submitted it is never shown.
+- **Private by default.** Each user sees only the links they submitted. Admins see every link and who submitted it.
 
 ## Requirements
 
@@ -53,13 +53,18 @@ Open <http://localhost:8000>. The tables are created automatically on first star
    - paste an invite link
    - press **Check** to fetch and preview the server's details (Submit stays disabled until the check passes, and the server refuses unchecked invites too)
    - add the source where the link was found, then press **Submit**
-4. **Browse.** The links page lists every submitted server in a table with its icon, name, Discord description, member and online counts, source and registration time. You can search by name, description or source.
-5. **Manage links (admins).** **Link management** (`/admin/links`) lists every link in a table with its server icon, server ID, member count, and the submitter's name and email.
-   - **Filter** by submitter, or by a date range (**From** and **To** are both inclusive).
-   - **Joined** marks the server as joined; the button is then replaced by a ✓ Joined badge.
-   - **Copy** copies the invite link to the clipboard.
-   - **Delete** removes the link from the list. That server can never be submitted again.
-   - Tick **Show removed** to see deleted links too.
+4. **View links.** Everything happens on the one links page (`/`), which shows a table with each server's icon, name, Discord description, member and online counts, source and submission time.
+   - **Regular users** see only the links they submitted themselves, and can't change them. They don't see the Status column or the Status filter.
+   - **Admins** see every link, plus the server ID, the status (Joined or Unjoined), the submitter's name and email, and an **Actions** column with three icon buttons:
+     - **Joined/Unjoined** toggles whether the server has been joined (green when joined).
+     - **Copy** copies the invite link to the clipboard.
+     - **Delete** removes the link from the list. That server can never be submitted again.
+   - **Filters**, in any combination:
+     - **Server name or description** (text search)
+     - **Submitter** (admins only)
+     - **Submitted from / to**: the date the link was submitted to this site (stored in the database), not when the Discord server was created. Both days are inclusive.
+     - **Status** (admins only): All, Joined or Unjoined
+     - **Deletion**: Not deleted (default), Deleted or All
 
 These invite formats are accepted: `https://discord.gg/CODE`, `https://discord.com/invite/CODE`, `https://discordapp.com/invite/CODE`, or a bare `CODE`.
 
@@ -76,11 +81,11 @@ All endpoints except register and login need an approved session. The `/api/admi
 | GET | `/api/admin/users?status=pending` | List users, optionally filtered by `pending`, `approved` or `rejected` |
 | POST | `/api/admin/users/{id}/approve` | Approve a user |
 | POST | `/api/admin/users/{id}/reject` | Reject a user, or revoke their access |
-| GET | `/api/admin/links?submitter_id=&date_from=&date_to=&include_removed=` | List links with the submitting account (`register_account`). Dates filter `register_time`, are ISO 8601; `date_from` is inclusive and `date_to` is exclusive. |
 | GET | `/api/admin/submitters` | Users who have submitted at least one link, for the submitter filter |
 | POST | `/api/admin/links/{id}/joined` | Mark a link's server as joined (`joined` becomes `true`) |
+| DELETE | `/api/admin/links/{id}/joined` | Mark a link's server as not joined (`joined` becomes `false`) |
 | DELETE | `/api/admin/links/{id}` | Delete a link. Its server stays permanently blocked from being submitted again. |
-| GET | `/api/links?q=` | List links, with an optional text search. Submitters are not included. |
+| GET | `/api/links?q=&submitter_id=&date_from=&date_to=&joined=&deletion=` | List links. Regular users get only their own links, without submitter details; admins get every link with the submitting account (`register_account`). `q` matches the server name or description. `submitter_id` and `joined` are admin-only (`403` otherwise), and only admins get the `joined` field. `date_from`/`date_to` filter the submission time stored in the database (`register_time`), are ISO 8601, and are inclusive/exclusive. `joined` is `all` (default), `joined` or `unjoined`. `deletion` is `active` (default, not deleted), `deleted` or `all`. |
 | POST | `/api/links/check` | Look up an invite on Discord and return the server's details and `already_registered` |
 | POST | `/api/links` | Submit a link (`invite`, `source`). The invite must have been checked in this session within the last 30 minutes. Returns `409` if the server is already registered. |
 
@@ -91,7 +96,7 @@ All endpoints except register and login need an approved session. The `/api/admi
 - **Duplicates.** Detected by `guild_id`, which has a unique constraint in the database. That constraint also catches two people submitting the same server at the same moment.
 - **Deleting.** An admin's delete only hides the link: it sets `removed` and keeps the row. Because `guild_id` stays taken, that server can't be submitted again with any invite, and Check reports that it was removed by an administrator.
 - **Check before submit.** A successful Check is recorded in the user's signed session cookie. A submission is refused unless its invite was checked by that session within the last 30 minutes. The invite is looked up on Discord again when it's submitted, so an invite that expired in between is caught.
-- **Privacy.** Each link stores who submitted it. Only the admin endpoints and the Link management page show it; the link API that regular users see never returns it.
+- **Privacy.** The link list is scoped on the server: a regular user's request only ever returns links they submitted, and never includes submitter details. Check still reports when a server is already registered, without saying by whom.
 - **Sessions.** Sessions are signed cookies, valid for 7 days. The user's approval status is checked again on every request.
 
 ## Tests
@@ -119,8 +124,8 @@ app/
   discord.py       invite parsing and Discord lookup
   routers/
     auth.py        register, login, logout, me
-    admin.py       user approval, link management
-    links.py       check, submit, list
+    admin.py       user approval, link actions (joined, delete)
+    links.py       check, submit, list (scoped per user)
     pages.py       HTML page routes
   templates/       Jinja2 HTML pages
   static/          CSS and JavaScript

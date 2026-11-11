@@ -99,6 +99,16 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .btn-ghost:hover { background: var(--surface-2); }
 .btn-sm { padding: 5px 12px; font-size: .85rem; }
 .icon-btn { padding: 4px 10px; }
+.icon-actions { display: inline-flex; gap: 4px; justify-content: flex-end; }
+.icon-action {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--muted); cursor: pointer;
+}
+.icon-action:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.icon-action:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.icon-action:disabled { opacity: .5; cursor: not-allowed; }
+.icon-action.on, .icon-action.on:hover:not(:disabled) { color: var(--ok); border-color: var(--ok); }
+.icon-action.danger:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
 
 /* tabs */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
@@ -113,13 +123,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 .auth-card { max-width: 420px; margin: 48px auto; padding: 8px 24px 24px; }
 
 /* links */
-.toolbar { display: flex; gap: 10px; margin-bottom: 18px; }
-.toolbar input { flex: 1; }
 .link-head { display: flex; align-items: center; gap: 12px; }
 .link-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .server-icon { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
-.desc-cell { min-width: 220px; max-width: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.source-cell { max-width: 220px; overflow-wrap: anywhere; }
+.desc-cell { min-width: 200px; max-width: 380px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.source-cell { min-width: 110px; max-width: 220px; overflow-wrap: break-word; word-break: break-word; }
 .server-icon.lg { width: 56px; height: 56px; }
 .server-icon.placeholder {
   display: grid; place-items: center; background: var(--primary); color: #fff; font-weight: 700; font-size: 1.1rem;
@@ -167,15 +175,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 @media (max-width: 640px) {
   .topbar { padding: 12px 16px; gap: 12px; }
   .account { margin-left: 0; width: 100%; justify-content: space-between; }
-  .toolbar { flex-direction: column; }
 }
 
 /* link management */
 .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 16px; margin-bottom: 12px; }
-.filters label { min-width: 160px; }
-.filters label:first-child { flex: 1; min-width: 220px; }
-.filters label.checkbox { flex-direction: row; align-items: center; gap: 8px; min-width: 0; padding-bottom: 10px; font-weight: 400; }
-.filters label.checkbox input { width: auto; }
+.filters label { min-width: 150px; }
+.filters label.grow { flex: 1; min-width: 220px; }
 .server-cell { display: flex; align-items: center; gap: 10px; min-width: 180px; }
 .server-cell .badge { margin-left: 6px; }
 .server-icon.sm { width: 32px; height: 32px; font-size: .9rem; }

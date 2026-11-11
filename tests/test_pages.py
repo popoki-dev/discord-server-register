@@ -38,14 +38,23 @@ def test_static_assets_are_served(client):
         assert client.get(asset).status_code == 200
 
 
-def test_link_management_page_is_admin_only(client, user, admin):
+def test_old_link_management_url_redirects_to_links_page(client, admin):
     assert client.get("/admin/links", follow_redirects=False).headers["location"] == "/login"
-    assert user.get("/admin/links", follow_redirects=False).headers["location"] == "/"
-    r = admin.get("/admin/links")
-    assert r.status_code == 200
-    assert 'id="filters"' in r.text
-    assert 'href="/admin/links"' not in user.get("/").text
+    assert admin.get("/admin/links", follow_redirects=False).headers["location"] == "/"
+    assert 'href="/admin/links"' not in admin.get("/").text  # no separate nav entry any more
 
 
 def test_register_form_asks_for_full_name(client):
     assert 'name="full_name"' in client.get("/login").text
+
+
+def test_one_links_page_with_admin_only_extras(user, admin):
+    page = user.get("/").text
+    assert 'id="filters"' in page and 'name="deletion"' in page
+    assert 'name="submitter_id"' not in page and ">Actions</th>" not in page and ">Submitter</th>" not in page
+    assert 'name="joined"' not in page and ">Status</th>" not in page
+    assert 'data-admin="false"' in page
+    page = admin.get("/").text
+    assert 'name="submitter_id"' in page and ">Actions</th>" in page and ">Submitter</th>" in page
+    assert 'name="joined"' in page and ">Status</th>" in page
+    assert 'data-admin="true"' in page

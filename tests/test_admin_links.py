@@ -18,20 +18,21 @@ def set_register_time(link_id, when):
 
 
 def ids(admin, **params):
-    return [link["id"] for link in admin.get("/api/admin/links", params=params).json()]
+    return [link["id"] for link in admin.get("/api/links", params=params).json()]
 
 
 def test_admin_links_require_admin(client, user):
-    for path in ("/api/admin/links", "/api/admin/submitters"):
+    for path in ("/api/admin/submitters",):
         assert client.get(path).status_code == 401
         assert user.get(path).status_code == 403
     assert user.delete("/api/admin/links/1").status_code == 403
     assert user.post("/api/admin/links/1/joined").status_code == 403
+    assert user.delete("/api/admin/links/1/joined").status_code == 403
 
 
 def test_admin_list_shows_server_and_submitter_details(user, admin):
     add_link(user, "alpha")
-    [link] = admin.get("/api/admin/links").json()
+    [link] = admin.get("/api/links").json()
     assert link["guild_id"] == "111111111111111111"
     assert link["icon_url"].startswith("https://cdn.discordapp.com/icons/111111111111111111/")
     assert link["invite_url"] == "https://discord.gg/alpha"
@@ -69,7 +70,7 @@ def test_filter_by_date(user, admin):
     assert ids(admin, date_to="2026-02-01T00:00:00Z") == [old]
     assert ids(admin, date_from="2026-01-15T00:00:00Z", date_to="2026-01-16T00:00:00Z") == [old]
     assert ids(admin, date_from="2026-04-01T00:00:00Z") == []
-    assert admin.get("/api/admin/links", params={"date_from": "not-a-date"}).status_code == 422
+    assert admin.get("/api/links", params={"date_from": "not-a-date"}).status_code == 422
 
 
 def test_filters_combine(user, other_user, admin):
@@ -82,12 +83,13 @@ def test_filters_combine(user, other_user, admin):
     assert ids(admin, submitter_id=uid) == [a]
 
 
-def test_delete_is_soft_and_listed_with_include_removed(user, admin):
+def test_delete_is_soft_and_listed_with_deletion_filter(user, admin):
     link_id = add_link(user, "alpha")
     assert admin.delete(f"/api/admin/links/{link_id}").status_code == 204
     assert ids(admin) == []
-    [removed] = admin.get("/api/admin/links", params={"include_removed": "true"}).json()
+    [removed] = admin.get("/api/links", params={"deletion": "deleted"}).json()
     assert removed["id"] == link_id and removed["removed"] is True
+    assert ids(admin, deletion="all") == [link_id]
     assert admin.delete(f"/api/admin/links/{link_id}").status_code == 404  # already deleted
     assert admin.delete("/api/admin/links/999999").status_code == 404
 
@@ -98,7 +100,10 @@ def test_mark_joined(user, admin):
     assert r.status_code == 200
     assert r.json()["joined"] is True
     assert admin.post(f"/api/admin/links/{link_id}/joined").json()["joined"] is True  # stays joined
-    [link] = admin.get("/api/admin/links").json()
+    r = admin.delete(f"/api/admin/links/{link_id}/joined")  # unjoin
+    assert r.status_code == 200 and r.json()["joined"] is False
+    assert admin.post(f"/api/admin/links/{link_id}/joined").json()["joined"] is True
+    [link] = admin.get("/api/links").json()
     assert link["joined"] is True
     with SessionLocal() as db:
         assert db.get(Link, link_id).joined is True
@@ -109,3 +114,55 @@ def test_mark_joined_unknown_or_removed_link(user, admin):
     link_id = add_link(user, "alpha")
     admin.delete(f"/api/admin/links/{link_id}")
     assert admin.post(f"/api/admin/links/{link_id}/joined").status_code == 404
+    assert admin.delete(f"/api/admin/links/{link_id}/joined").status_code == 404
+
+
+def test_admin_search(user, admin):
+    a = add_link(user, "alpha")
+    add_link(user, "beta")
+    assert ids(admin, q="alpha") == [a]
+    assert ids(admin, q="%") == []
+
+
+def test_filter_by_joined_status(user, admin):
+    a = add_link(user, "alpha")
+    b = add_link(user, "beta")
+    admin.post(f"/api/admin/links/{a}/joined")
+    assert ids(admin, joined="joined") == [a]
+    assert ids(admin, joined="unjoined") == [b]
+    assert sorted(ids(admin, joined="all")) == sorted([a, b])
+    assert admin.get("/api/links", params={"joined": "maybe"}).status_code == 422
+
+
+def test_filter_by_deletion_status(user, admin):
+    kept = add_link(user, "alpha")
+    gone = add_link(user, "beta")
+    admin.delete(f"/api/admin/links/{gone}")
+    assert ids(admin) == [kept]  # not deleted by default
+    assert ids(admin, deletion="active") == [kept]
+    assert ids(admin, deletion="deleted") == [gone]
+    assert sorted(ids(admin, deletion="all")) == sorted([kept, gone])
+    assert admin.get("/api/links", params={"deletion": "nope"}).status_code == 422
+
+
+def test_search_matches_name_or_description_only(user, admin):
+    a = add_link(user, "alpha")  # description "Alpha desc", source "s"
+    add_link(user, "beta")
+    assert ids(admin, q="alpha server") == [a]
+    assert ids(admin, q="DESC") == [a]
+    assert ids(admin, q="zzz") == []
+
+
+def test_all_filters_combine(user, other_user, admin):
+    a = add_link(user, "alpha")
+    add_link(other_user, "beta")
+    admin.post(f"/api/admin/links/{a}/joined")
+    uid = next(s["id"] for s in admin.get("/api/admin/submitters").json() if s["email"] == "user@example.com")
+    today = datetime.now(timezone.utc)
+    params = dict(q="alpha", submitter_id=uid, joined="joined", deletion="active",
+                  date_from=(today - timedelta(days=1)).isoformat(), date_to=(today + timedelta(days=1)).isoformat())
+    assert ids(admin, **params) == [a]
+    assert ids(admin, **{**params, "joined": "unjoined"}) == []
+    admin.delete(f"/api/admin/links/{a}")
+    assert ids(admin, **params) == []
+    assert ids(admin, **{**params, "deletion": "deleted"}) == [a]

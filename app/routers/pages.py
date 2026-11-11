@@ -48,9 +48,8 @@ def login_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/admin/links")
 def admin_links_page(request: Request, db: Session = Depends(get_db)):
+    """Link management moved into the links page; keep old bookmarks working."""
     user = session_user(request, db)
     if user is None:
         return RedirectResponse("/login", status_code=303)
-    if not user.is_admin:
-        return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse(request, "admin_links.html", {"user": user, "page": "admin_links"})
+    return RedirectResponse("/", status_code=303)

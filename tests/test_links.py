@@ -157,16 +157,39 @@ def test_submit_validates_fields(user, field, value):
 
 # ---------------------------------------------------------------- list
 
-def test_list_hides_submitter(user, other_user):
+def test_users_see_only_their_own_links(user, other_user):
     check(user, "alpha")
-    submit(user)
-    links = other_user.get("/api/links").json()
-    assert len(links) == 1
+    mine = submit(user).json()["id"]
+    check(other_user, "beta")
+    submit(other_user, invite="beta")
+    links = user.get("/api/links").json()
+    assert [l["id"] for l in links] == [mine]
     assert set(links[0]) == {
-        "id", "guild_id", "name", "icon_url", "description", "member_count",
-        "online_count", "invite_url", "expires_at", "source", "register_time",
-    }
-    assert "user@example.com" not in other_user.get("/api/links").text
+        "id", "guild_id", "name", "icon_url", "description", "member_count", "online_count",
+        "invite_url", "expires_at", "source", "register_time", "removed",
+    }  # no submitter details or joined status
+    assert [l["name"] for l in other_user.get("/api/links").json()] == ["Beta Server"]
+
+
+def test_users_cannot_filter_by_submitter_or_status(user):
+    assert user.get("/api/links", params={"submitter_id": 1}).status_code == 403
+    assert user.get("/api/links", params={"joined": "joined"}).status_code == 403
+    assert user.get("/api/links", params={"joined": "all"}).status_code == 200
+
+
+def test_user_filters_apply_within_their_own_links(user, admin):
+    check(user, "alpha")
+    a = submit(user).json()["id"]
+    check(user, "beta")
+    b = submit(user, invite="beta").json()["id"]
+    admin.post(f"/api/admin/links/{a}/joined")
+    admin.delete(f"/api/admin/links/{b}")
+    get = lambda **p: [l["id"] for l in user.get("/api/links", params=p).json()]
+    assert get() == [a]
+    assert get(deletion="deleted") == [b]
+    assert sorted(get(deletion="all")) == sorted([a, b])
+    assert get(q="beta", deletion="all") == [b]
+    assert get(date_from="2000-01-01T00:00:00Z", date_to="2000-01-02T00:00:00Z") == []
 
 
 def test_list_search(user):
@@ -177,8 +200,8 @@ def test_list_search(user):
     assert len(user.get("/api/links").json()) == 2
     assert [l["name"] for l in user.get("/api/links", params={"q": "alpha"}).json()] == ["Alpha Server"]
     assert [l["name"] for l in user.get("/api/links", params={"q": "desc"}).json()] == ["Alpha Server"]
-    assert len(user.get("/api/links", params={"q": "100%"}).json()) == 1
-    assert len(user.get("/api/links", params={"q": "%"}).json()) == 1  # % is literal, not a wildcard
+    assert user.get("/api/links", params={"q": "100%"}).json() == []  # source isn't searched
+    assert user.get("/api/links", params={"q": "%"}).json() == []  # % is literal, not a wildcard
 
 
 # ---------------------------------------------------------------- deleted servers stay blocked

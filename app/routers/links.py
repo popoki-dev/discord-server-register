@@ -1,15 +1,17 @@
 import time
+from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import discord
 from app.database import get_db
 from app.deps import current_user
 from app.models import Link, User
-from app.schemas import InviteCheckIn, LinkIn, LinkOut, ServerInfo
+from app.schemas import AdminLinkOut, InviteCheckIn, LinkIn, LinkOut, ServerInfo, Submitter
 
 router = APIRouter(prefix="/api/links", tags=["links"])
 
@@ -57,6 +59,12 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def search_filter(q: str):
+    """Case-insensitive match on the server name or description. % and _ are literal."""
+    pattern = f"%{_escape_like(q)}%"
+    return or_(Link.name.ilike(pattern), Link.description.ilike(pattern))
+
+
 def _existing(db: Session, guild_id: str) -> Link | None:
     """The link for this server, including ones an admin has deleted."""
     return db.scalar(select(Link).where(Link.guild_id == guild_id))
@@ -66,17 +74,48 @@ def _conflict_message(link: Link) -> str:
     return REMOVED_MESSAGE if link.removed else DUPLICATE_MESSAGE
 
 
-@router.get("")
+def admin_link_out(link: Link) -> AdminLinkOut:
+    return AdminLinkOut(
+        **LinkOut.model_validate(link).model_dump(),
+        joined=link.joined,
+        register_account=Submitter.model_validate(link.submitter),
+    )
+
+
+@router.get("", response_model=None)
 def list_links(
-    q: str | None = Query(None, max_length=100),
+    q: str | None = Query(None, max_length=100, description="Matches the server name or description"),
+    submitter_id: int | None = Query(None, description="Admins only: links submitted by this user"),
+    date_from: datetime | None = Query(None, description="Submitted at or after (ISO 8601); uses register_time"),
+    date_to: datetime | None = Query(None, description="Submitted before (ISO 8601, exclusive); uses register_time"),
+    joined: Literal["all", "joined", "unjoined"] = Query("all", description="Admins only"),
+    deletion: Literal["active", "deleted", "all"] = Query("active", description="active = not deleted"),
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
-) -> list[LinkOut]:
-    query = select(Link).where(Link.removed.is_(False)).order_by(Link.register_time.desc())
+    user: User = Depends(current_user),
+) -> list[AdminLinkOut] | list[LinkOut]:
+    """Admins see every link with its submitter; other users see only the links they submitted."""
+    query = select(Link).options(joinedload(Link.submitter)).order_by(Link.register_time.desc())
+    if user.is_admin:
+        if submitter_id is not None:
+            query = query.where(Link.register_account == submitter_id)
+    elif submitter_id is not None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only administrators can filter by submitter")
+    elif joined != "all":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only administrators can filter by status")
+    else:
+        query = query.where(Link.register_account == user.id)
     if q:
-        pattern = f"%{_escape_like(q)}%"
-        query = query.where(or_(Link.name.ilike(pattern), Link.description.ilike(pattern), Link.source.ilike(pattern)))
-    return [_to_out(link) for link in db.scalars(query)]
+        query = query.where(search_filter(q))
+    if date_from is not None:
+        query = query.where(Link.register_time >= date_from)
+    if date_to is not None:
+        query = query.where(Link.register_time < date_to)
+    if joined != "all":
+        query = query.where(Link.joined.is_(joined == "joined"))
+    if deletion != "all":
+        query = query.where(Link.removed.is_(deletion == "deleted"))
+    links = db.scalars(query)
+    return [admin_link_out(link) for link in links] if user.is_admin else [_to_out(link) for link in links]
 
 
 @router.post("/check")

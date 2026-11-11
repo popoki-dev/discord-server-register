@@ -78,7 +78,7 @@ class LinkIn(BaseModel):
 
 
 class LinkOut(BaseModel):
-    """Public view of a link. Deliberately has no submitter field."""
+    """A link as its submitter sees it. Deliberately has no submitter field."""
 
     id: int
     guild_id: str
@@ -91,6 +91,7 @@ class LinkOut(BaseModel):
     expires_at: datetime | None
     source: str
     register_time: datetime
+    removed: bool
 
     model_config = {"from_attributes": True}
 
@@ -104,8 +105,7 @@ class Submitter(BaseModel):
 
 
 class AdminLinkOut(LinkOut):
-    """Admin view of a link, including who submitted it."""
+    """Admin view of a link, including who submitted it and whether it has been joined."""
 
     joined: bool
     register_account: Submitter
-    removed: bool

@@ -15,7 +15,6 @@
       <a href="/" class="{{ 'active' if page == 'links' }}">Links</a>
       {% if user.is_admin %}
       <a href="/admin" class="{{ 'active' if page == 'admin' }}">User management</a>
-      <a href="/admin/links" class="{{ 'active' if page == 'admin_links' }}">Link management</a>
       {% endif %}
     </nav>
     <div class="account">

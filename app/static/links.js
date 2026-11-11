@@ -1,6 +1,10 @@
 const tbody = document.getElementById("links-body");
 const emptyMsg = document.getElementById("links-empty");
-const search = document.getElementById("search");
+const countMsg = document.getElementById("result-count");
+const filters = document.getElementById("filters");
+// Admins see every link plus the submitter filter/columns and the action buttons. Other users see
+// only their own links. The server enforces both: the list is scoped per user, admin endpoints check the role.
+const isAdmin = document.getElementById("links-table").dataset.admin === "true";
 
 const modal = document.getElementById("submit-modal");
 const form = document.getElementById("submit-form");
@@ -21,10 +25,18 @@ function serverCell(link) {
   return el("div", { class: "server-cell" },
     icon,
     el("div", {},
-      el("div", { class: "strong", text: link.name }),
+      el("span", { class: "strong", text: link.name }),
+      link.removed ? el("span", { class: "badge badge-rejected", text: "deleted" }) : null,
+      isAdmin ? el("div", { class: "mono small muted", text: link.guild_id, title: "Server ID" }) : null,
       link.expires_at ? el("div", { class: "warn small", text: `Invite expires ${formatDate(link.expires_at)}` }) : null,
     ),
   );
+}
+
+function statusBadge(link) {
+  return link.joined
+    ? el("span", { class: "badge badge-approved", text: "Joined" })
+    : el("span", { class: "badge", text: "Unjoined" });
 }
 
 function linkRow(link) {
@@ -32,34 +44,83 @@ function linkRow(link) {
     ? el("a", { href: link.source, target: "_blank", rel: "noopener noreferrer nofollow", text: link.source })
     : el("span", { text: link.source });
 
-  return el("tr", {},
+  return el("tr", { class: link.removed ? "row-deleted" : null },
     el("td", {}, serverCell(link)),
     el("td", { class: "small desc-cell", text: link.description || "—" }),
     el("td", { class: "right nowrap", text: formatNumber(link.member_count) }),
     el("td", { class: "right nowrap", text: formatNumber(link.online_count) }),
     el("td", { class: "small source-cell" }, source),
+    isAdmin ? el("td", { class: "status-cell" }, statusBadge(link)) : null,
     el("td", { class: "small nowrap", text: formatDate(link.register_time) }),
-    el("td", { class: "right" },
-      el("a", { class: "btn btn-primary btn-sm", href: link.invite_url, target: "_blank", rel: "noopener noreferrer", text: "Join" }),
-    ),
+    isAdmin ? el("td", {},
+      el("div", { text: link.register_account.full_name || "—" }),
+      el("div", { class: "small muted", text: link.register_account.email }),
+    ) : null,
+    isAdmin ? el("td", { class: "right" }, linkActions(link, {
+      admin: true,
+      onDeleted: loadLinks,
+      // Keep the Status column in step with the Joined/Unjoined toggle.
+      onJoinedChange: (row) => row.querySelector(".status-cell").replaceChildren(statusBadge(link)),
+    })) : null,
   );
 }
 
-async function loadLinks() {
+// Date inputs are local calendar days; send the matching UTC instants.
+function dayStart(value, offsetDays = 0) {
+  const d = new Date(`${value}T00:00:00`);
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString();
+}
+
+function queryString() {
+  const fd = new FormData(filters);
   const params = new URLSearchParams();
-  if (search.value.trim()) params.set("q", search.value.trim());
+  if (fd.get("q").trim()) params.set("q", fd.get("q").trim());
+  if (fd.get("submitter_id")) params.set("submitter_id", fd.get("submitter_id"));
+  if (fd.get("date_from")) params.set("date_from", dayStart(fd.get("date_from")));
+  if (fd.get("date_to")) params.set("date_to", dayStart(fd.get("date_to"), 1)); // inclusive of the "to" day
+  if (fd.get("joined")) params.set("joined", fd.get("joined")); // admin-only filter
+  params.set("deletion", fd.get("deletion"));
+  return params.toString();
+}
+
+function filtersAreDefault() {
+  const fd = new FormData(filters);
+  return !fd.get("q").trim() && !fd.get("submitter_id") && !fd.get("date_from") && !fd.get("date_to")
+    && (fd.get("joined") ?? "all") === "all" && fd.get("deletion") === "active";
+}
+
+async function loadLinks() {
+  const fd = new FormData(filters);
+  if (fd.get("date_from") && fd.get("date_to") && fd.get("date_from") > fd.get("date_to")) {
+    toast("“Submitted from” must be on or before “Submitted to”", "error");
+    return;
+  }
   try {
-    const links = await api(`/api/links?${params}`);
+    const links = await api(`/api/links?${queryString()}`);
     tbody.replaceChildren(...links.map(linkRow));
-    emptyMsg.textContent = params.toString() ? "No links match your search." : "No links yet. Be the first to submit one!";
+    emptyMsg.textContent = !filtersAreDefault() ? "No links match these filters."
+      : isAdmin ? "No links yet." : "You haven't submitted any links yet.";
     emptyMsg.hidden = links.length > 0;
+    countMsg.textContent = `${links.length} link${links.length === 1 ? "" : "s"}`;
   } catch (err) {
     toast(err.message, "error");
   }
 }
 
+async function loadSubmitters() {
+  const select = filters.elements.submitter_id;
+  if (!select) return;
+  for (const s of await api("/api/admin/submitters")) {
+    select.append(el("option", { value: s.id, text: s.full_name ? `${s.full_name} (${s.email})` : s.email }));
+  }
+}
+
+filters.addEventListener("change", (e) => { if (e.target.name !== "q") loadLinks(); });
+filters.addEventListener("reset", () => setTimeout(loadLinks)); // after the form clears
+filters.addEventListener("submit", (e) => e.preventDefault());
 let searchTimer;
-search.addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadLinks, 250); });
+filters.elements.q.addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadLinks, 250); });
 
 // ---------- submit modal ----------
 
@@ -155,4 +216,4 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
-loadLinks();
+loadSubmitters().then(loadLinks).catch((err) => toast(err.message, "error"));

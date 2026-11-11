@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
@@ -7,7 +5,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.deps import admin_user
 from app.models import Link, User, UserStatus
-from app.schemas import AdminLinkOut, LinkOut, Submitter, UserOut
+from app.routers.links import admin_link_out
+from app.schemas import AdminLinkOut, Submitter, UserOut
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -52,36 +51,6 @@ def reject_user(user_id: int, db: Session = Depends(get_db), admin: User = Depen
 # ---------------------------------------------------------------- link management
 
 
-def _admin_link(link: Link) -> AdminLinkOut:
-    return AdminLinkOut(
-        **LinkOut.model_validate(link).model_dump(),
-        joined=link.joined,
-        register_account=Submitter.model_validate(link.submitter),
-        removed=link.removed,
-    )
-
-
-@router.get("/links")
-def list_links(
-    submitter_id: int | None = None,
-    date_from: datetime | None = Query(None, description="Registered at or after (ISO 8601)"),
-    date_to: datetime | None = Query(None, description="Registered before (ISO 8601, exclusive)"),
-    include_removed: bool = False,
-    db: Session = Depends(get_db),
-    _: User = Depends(admin_user),
-) -> list[AdminLinkOut]:
-    query = select(Link).options(joinedload(Link.submitter)).order_by(Link.register_time.desc())
-    if not include_removed:
-        query = query.where(Link.removed.is_(False))
-    if submitter_id is not None:
-        query = query.where(Link.register_account == submitter_id)
-    if date_from is not None:
-        query = query.where(Link.register_time >= date_from)
-    if date_to is not None:
-        query = query.where(Link.register_time < date_to)
-    return [_admin_link(link) for link in db.scalars(query)]
-
-
 @router.get("/submitters")
 def list_submitters(db: Session = Depends(get_db), _: User = Depends(admin_user)) -> list[Submitter]:
     """Users who have submitted at least one link, for the submitter filter."""
@@ -89,15 +58,25 @@ def list_submitters(db: Session = Depends(get_db), _: User = Depends(admin_user)
     return [Submitter.model_validate(u) for u in db.scalars(query)]
 
 
-@router.post("/links/{link_id}/joined")
-def mark_joined(link_id: int, db: Session = Depends(get_db), _: User = Depends(admin_user)) -> AdminLinkOut:
-    """Record that the server has been joined. Clicking it again leaves it joined."""
+def _set_joined(link_id: int, joined: bool, db: Session) -> AdminLinkOut:
     link = db.get(Link, link_id, options=[joinedload(Link.submitter)])
     if link is None or link.removed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Link not found")
-    link.joined = True
+    link.joined = joined
     db.commit()
-    return _admin_link(link)
+    return admin_link_out(link)
+
+
+@router.post("/links/{link_id}/joined")
+def mark_joined(link_id: int, db: Session = Depends(get_db), _: User = Depends(admin_user)) -> AdminLinkOut:
+    """Mark the link's server as joined."""
+    return _set_joined(link_id, True, db)
+
+
+@router.delete("/links/{link_id}/joined")
+def mark_unjoined(link_id: int, db: Session = Depends(get_db), _: User = Depends(admin_user)) -> AdminLinkOut:
+    """Mark the link's server as not joined."""
+    return _set_joined(link_id, False, db)
 
 
 @router.delete("/links/{link_id}", status_code=status.HTTP_204_NO_CONTENT)
