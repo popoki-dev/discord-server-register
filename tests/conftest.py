@@ -7,6 +7,10 @@ an in-process fake, so no network access is needed.
 
 import os
 
+# SECRET_KEY has no built-in default; the tests use their own. DATABASE_URL still comes from .env
+# (or the environment) and is pointed at a separate test database below.
+os.environ["SECRET_KEY"] = "test-only-secret-key-not-used-anywhere-else-0123456789"
+
 import httpx
 import pytest
 from sqlalchemy import create_engine, text
@@ -19,9 +23,9 @@ _test_url = make_url(os.environ.get("TEST_DATABASE_URL") or settings.database_ur
 if not os.environ.get("TEST_DATABASE_URL"):
     _test_url = _test_url.set(database=f"{_test_url.database}_test")
 settings.database_url = _test_url.render_as_string(hide_password=False)
-settings.secret_key = "test-secret-key"
+settings.secret_key = "test-only-secret-key-not-used-anywhere-else-0123456789"
 settings.admin_email = "admin@example.com"
-settings.admin_password = "admin-password"
+settings.admin_password = "admin-password-for-tests"
 
 ADMIN = {"email": settings.admin_email, "password": settings.admin_password}
 
