@@ -77,7 +77,7 @@ All endpoints except register and login need an approved session. The `/api/admi
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/auth/register` | Apply for an account (`email`, `password`) |
+| POST | `/api/auth/register` | Apply for an account (`email`, `full_name`, `password`). The response is the same whether or not the email is already registered. |
 | POST | `/api/auth/login` | Sign in. Pending or rejected users get `403`. |
 | POST | `/api/auth/logout` | Sign out |
 | GET | `/api/auth/me` | The current user |

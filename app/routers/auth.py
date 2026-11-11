@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,16 +13,26 @@ from app.sessions import revoke_sessions, session_account, start_session
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+REGISTERED_MESSAGE = (
+    "Application received. If this email isn't already registered, an administrator will review it "
+    "and you can sign in once it's approved."
+)
+
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)) -> dict:
     if wait := REGISTRATIONS_PER_IP.hit(client_ip(request)):
         raise too_many(wait, "applications from your network")
-    if db.scalar(select(User).where(User.email == body.email)):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Email is already registered")
-    db.add(User(email=body.email, full_name=body.full_name, password_hash=hash_password(body.password)))
-    db.commit()
-    return {"message": "Application submitted. An administrator will review it."}
+    # The response is the same whether or not the email is already registered, so the form can't be
+    # used to find out who has an account. The password is hashed either way so timing matches too.
+    password_hash = hash_password(body.password)
+    if db.scalar(select(User).where(User.email == body.email)) is None:
+        db.add(User(email=body.email, full_name=body.full_name, password_hash=password_hash))
+        try:
+            db.commit()
+        except IntegrityError:  # the same email registered at the same moment
+            db.rollback()
+    return {"message": REGISTERED_MESSAGE}
 
 
 @router.post("/login")

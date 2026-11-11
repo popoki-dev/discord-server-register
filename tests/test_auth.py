@@ -16,10 +16,21 @@ def test_register_creates_pending_application(client, admin):
     assert users[0]["full_name"] == "New Person"
 
 
-def test_register_duplicate_email_is_rejected_case_insensitively(client):
-    register(client, "dup@example.com")
-    r = register(client, "DUP@example.com")
-    assert r.status_code == 409
+def test_register_does_not_reveal_existing_emails(client, admin):
+    first = register(client, "dup@example.com", full_name="Original")
+    again = register(client, "DUP@example.com", password="other-password", full_name="Impostor")
+    assert (again.status_code, again.json()) == (first.status_code, first.json()) == (201, again.json())
+    users = [u for u in admin.get("/api/admin/users").json() if u["email"] == "dup@example.com"]
+    assert len(users) == 1 and users[0]["full_name"] == "Original"  # existing account untouched
+    # The original password still works; the second one doesn't.
+    from app.database import SessionLocal
+    from app.models import User
+
+    with SessionLocal() as db:
+        db.query(User).filter_by(email="dup@example.com").update({"status": UserStatus.approved})
+        db.commit()
+    assert client.post("/api/auth/login", json={"email": "dup@example.com", "password": PASSWORD}).status_code == 200
+    assert client.post("/api/auth/login", json={"email": "dup@example.com", "password": "other-password"}).status_code == 401
 
 
 def test_register_validates_input(client):
