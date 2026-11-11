@@ -9,11 +9,12 @@ from app import discord
 from app.database import get_db
 from app.deps import current_user
 from app.models import Link, User
-from app.schemas import CATEGORIES, InviteCheckIn, LinkIn, LinkOut, ServerInfo
+from app.schemas import InviteCheckIn, LinkIn, LinkOut, ServerInfo
 
 router = APIRouter(prefix="/api/links", tags=["links"])
 
 DUPLICATE_MESSAGE = "This server has already been registered"
+REMOVED_MESSAGE = "This server was removed by an administrator and cannot be submitted again"
 NOT_CHECKED_MESSAGE = "Please press \"Check\" to verify the invite link before submitting"
 
 # Invites this session has verified with "Check": {invite_code: unix_time}.
@@ -42,18 +43,7 @@ def _forget_check(request: Request, code: str) -> None:
 
 
 def _to_out(link: Link) -> LinkOut:
-    return LinkOut(
-        id=link.id,
-        guild_id=link.guild_id,
-        guild_name=link.guild_name,
-        icon_url=discord.icon_url(link.guild_id, link.guild_icon),
-        member_count=link.member_count,
-        invite_url=discord.invite_url(link.invite_code),
-        category=link.category,
-        description=link.description,
-        source=link.source,
-        created_at=link.created_at,
-    )
+    return LinkOut.model_validate(link)
 
 
 async def _lookup(invite: str) -> discord.GuildInfo:
@@ -67,28 +57,25 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _is_registered(db: Session, guild_id: str) -> bool:
-    return db.scalar(select(Link.id).where(Link.guild_id == guild_id)) is not None
+def _existing(db: Session, guild_id: str) -> Link | None:
+    """The link for this server, including ones an admin has deleted."""
+    return db.scalar(select(Link).where(Link.guild_id == guild_id))
 
 
-@router.get("/categories")
-def categories(_: User = Depends(current_user)) -> list[str]:
-    return CATEGORIES
+def _conflict_message(link: Link) -> str:
+    return REMOVED_MESSAGE if link.removed else DUPLICATE_MESSAGE
 
 
 @router.get("")
 def list_links(
-    category: str | None = None,
     q: str | None = Query(None, max_length=100),
     db: Session = Depends(get_db),
     _: User = Depends(current_user),
 ) -> list[LinkOut]:
-    query = select(Link).order_by(Link.created_at.desc())
-    if category:
-        query = query.where(Link.category == category)
+    query = select(Link).where(Link.removed.is_(False)).order_by(Link.register_time.desc())
     if q:
         pattern = f"%{_escape_like(q)}%"
-        query = query.where(or_(Link.guild_name.ilike(pattern), Link.description.ilike(pattern)))
+        query = query.where(or_(Link.name.ilike(pattern), Link.description.ilike(pattern), Link.source.ilike(pattern)))
     return [_to_out(link) for link in db.scalars(query)]
 
 
@@ -97,8 +84,8 @@ async def check_invite(
     body: InviteCheckIn, request: Request, db: Session = Depends(get_db), _: User = Depends(current_user)
 ) -> ServerInfo:
     info = await _lookup(body.invite)
-    registered = _is_registered(db, info.guild_id)
-    if not registered:
+    existing = _existing(db, info.guild_id)
+    if existing is None:
         _remember_check(request, discord.parse_invite_code(body.invite))
     return ServerInfo(
         guild_id=info.guild_id,
@@ -109,7 +96,8 @@ async def check_invite(
         online_count=info.online_count,
         invite_url=info.invite_url,
         expires_at=info.expires_at,
-        already_registered=registered,
+        already_registered=existing is not None,
+        removed=existing is not None and existing.removed,
     )
 
 
@@ -128,26 +116,32 @@ async def create_link(
     # Resolve again server-side: the guild_id comes from Discord, never from the client,
     # and the invite may have expired since it was checked.
     info = await _lookup(body.invite)
-    if _is_registered(db, info.guild_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, DUPLICATE_MESSAGE)
+    if (existing := _existing(db, info.guild_id)) is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, _conflict_message(existing))
 
+    # Store what Check showed, as fetched from Discord just now.
     link = Link(
         guild_id=info.guild_id,
-        invite_code=info.invite_code,
-        category=body.category,
-        description=body.description,
-        source=body.source,
-        guild_name=info.name,
-        guild_icon=info.icon,
+        name=info.name,
+        icon_url=info.icon_url,
+        description=info.description,
         member_count=info.member_count,
-        submitted_by=user.id,
+        online_count=info.online_count,
+        invite_url=info.invite_url,
+        expires_at=info.expires_at,
+        source=body.source,
+        joined=False,
+        register_account=user.id,
+        removed=False,
     )
     db.add(link)
     try:
         db.commit()
     except IntegrityError:  # two users submitted the same server at the same moment
         db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, DUPLICATE_MESSAGE)
+        existing = _existing(db, info.guild_id)
+        raise HTTPException(status.HTTP_409_CONFLICT, _conflict_message(existing) if existing else DUPLICATE_MESSAGE)
     db.refresh(link)
     _forget_check(request, code)
     return _to_out(link)
+

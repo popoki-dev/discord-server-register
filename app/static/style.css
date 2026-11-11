@@ -115,15 +115,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
 /* links */
 .toolbar { display: flex; gap: 10px; margin-bottom: 18px; }
 .toolbar input { flex: 1; }
-.toolbar select { width: 220px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-.link-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .link-head { display: flex; align-items: center; gap: 12px; }
 .link-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.link-desc { margin: 0; flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
-.link-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.link-foot > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .server-icon { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
+.desc-cell { min-width: 220px; max-width: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.source-cell { max-width: 220px; overflow-wrap: anywhere; }
 .server-icon.lg { width: 56px; height: 56px; }
 .server-icon.placeholder {
   display: grid; place-items: center; background: var(--primary); color: #fff; font-weight: 700; font-size: 1.1rem;
@@ -172,6 +168,22 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
   .topbar { padding: 12px 16px; gap: 12px; }
   .account { margin-left: 0; width: 100%; justify-content: space-between; }
   .toolbar { flex-direction: column; }
-  .toolbar select { width: 100%; }
-  .grid { grid-template-columns: 1fr; }
 }
+
+/* link management */
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 16px; margin-bottom: 12px; }
+.filters label { min-width: 160px; }
+.filters label:first-child { flex: 1; min-width: 220px; }
+.filters label.checkbox { flex-direction: row; align-items: center; gap: 8px; min-width: 0; padding-bottom: 10px; font-weight: 400; }
+.filters label.checkbox input { width: auto; }
+.server-cell { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+.server-cell .badge { margin-left: 6px; }
+.server-icon.sm { width: 32px; height: 32px; font-size: .9rem; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.nowrap { white-space: nowrap; }
+.row-deleted td { opacity: .6; }
+.row-deleted td:last-child { opacity: 1; }
+#result-count { margin: 0 0 8px; }
+.container.wide { max-width: 1440px; }
+.table.compact th, .table.compact td { padding: 10px 12px; }
+.table.compact .actions { flex-wrap: nowrap; }

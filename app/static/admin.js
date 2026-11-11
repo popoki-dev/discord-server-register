@@ -43,6 +43,7 @@ async function loadUsers() {
   const qs = currentStatus ? `?status=${currentStatus}` : "";
   const users = await api(`/api/admin/users${qs}`);
   body.replaceChildren(...users.map((u) => el("tr", {},
+    el("td", { text: u.full_name || "—" }),
     el("td", { text: u.email }),
     el("td", {}, statusBadge(u.status)),
     el("td", { class: "small", text: formatDate(u.created_at) }),

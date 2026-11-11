@@ -1,7 +1,6 @@
-const grid = document.getElementById("links-grid");
+const tbody = document.getElementById("links-body");
 const emptyMsg = document.getElementById("links-empty");
 const search = document.getElementById("search");
-const categoryFilter = document.getElementById("category-filter");
 
 const modal = document.getElementById("submit-modal");
 const form = document.getElementById("submit-form");
@@ -15,27 +14,32 @@ let checkedInvite = null;
 
 // ---------- list ----------
 
-function linkCard(link) {
+function serverCell(link) {
   const icon = link.icon_url
-    ? el("img", { class: "server-icon", src: link.icon_url, alt: "", loading: "lazy" })
-    : el("div", { class: "server-icon placeholder", text: (link.guild_name || "?").charAt(0).toUpperCase() });
+    ? el("img", { class: "server-icon sm", src: link.icon_url, alt: "", loading: "lazy" })
+    : el("div", { class: "server-icon sm placeholder", text: (link.name || "?").charAt(0).toUpperCase() });
+  return el("div", { class: "server-cell" },
+    icon,
+    el("div", {},
+      el("div", { class: "strong", text: link.name }),
+      link.expires_at ? el("div", { class: "warn small", text: `Invite expires ${formatDate(link.expires_at)}` }) : null,
+    ),
+  );
+}
 
+function linkRow(link) {
   const source = isHttpUrl(link.source)
     ? el("a", { href: link.source, target: "_blank", rel: "noopener noreferrer nofollow", text: link.source })
     : el("span", { text: link.source });
 
-  return el("article", { class: "card link-card" },
-    el("div", { class: "link-head" },
-      icon,
-      el("div", { class: "link-title" },
-        el("h3", { text: link.guild_name }),
-        el("span", { class: "muted small", text: `${formatNumber(link.member_count)} members` }),
-      ),
-      el("span", { class: "badge", text: link.category }),
-    ),
-    el("p", { class: "link-desc", text: link.description }),
-    el("div", { class: "link-foot" },
-      el("span", { class: "muted small" }, "Source: ", source),
+  return el("tr", {},
+    el("td", {}, serverCell(link)),
+    el("td", { class: "small desc-cell", text: link.description || "—" }),
+    el("td", { class: "right nowrap", text: formatNumber(link.member_count) }),
+    el("td", { class: "right nowrap", text: formatNumber(link.online_count) }),
+    el("td", { class: "small source-cell" }, source),
+    el("td", { class: "small nowrap", text: formatDate(link.register_time) }),
+    el("td", { class: "right" },
       el("a", { class: "btn btn-primary btn-sm", href: link.invite_url, target: "_blank", rel: "noopener noreferrer", text: "Join" }),
     ),
   );
@@ -44,11 +48,10 @@ function linkCard(link) {
 async function loadLinks() {
   const params = new URLSearchParams();
   if (search.value.trim()) params.set("q", search.value.trim());
-  if (categoryFilter.value) params.set("category", categoryFilter.value);
   try {
     const links = await api(`/api/links?${params}`);
-    grid.replaceChildren(...links.map(linkCard));
-    emptyMsg.textContent = params.toString() ? "No links match your filters." : "No links yet. Be the first to submit one!";
+    tbody.replaceChildren(...links.map(linkRow));
+    emptyMsg.textContent = params.toString() ? "No links match your search." : "No links yet. Be the first to submit one!";
     emptyMsg.hidden = links.length > 0;
   } catch (err) {
     toast(err.message, "error");
@@ -57,15 +60,6 @@ async function loadLinks() {
 
 let searchTimer;
 search.addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(loadLinks, 250); });
-categoryFilter.addEventListener("change", loadLinks);
-
-async function loadCategories() {
-  const categories = await api("/api/links/categories");
-  for (const c of categories) {
-    categoryFilter.append(el("option", { value: c, text: c }));
-    form.elements.category.append(el("option", { value: c, text: c }));
-  }
-}
 
 // ---------- submit modal ----------
 
@@ -81,7 +75,7 @@ function openModal() {
   resetCheck();
   showFormMessage(form, ".form-error", "");
   modal.showModal();
-  form.elements.category.focus();
+  inviteInput.focus();
 }
 
 document.getElementById("open-submit").addEventListener("click", openModal);
@@ -106,7 +100,9 @@ function renderPreview(info) {
     el("div", { class: "muted small", text: `Server ID: ${info.guild_id}` }),
     info.expires_at ? el("div", { class: "warn small", text: `⚠ This invite expires on ${formatDate(info.expires_at)}. Consider using a permanent invite.` }) : null,
     info.already_registered
-      ? el("div", { class: "error small strong", text: "This server is already registered. Duplicate entries are not allowed." })
+      ? el("div", { class: "error small strong", text: info.removed
+          ? "This server was removed by an administrator and cannot be submitted again."
+          : "This server is already registered. Duplicate entries are not allowed." })
       : el("div", { class: "ok small strong", text: "✓ Valid invite — ready to submit." }),
   ].filter(Boolean));
   preview.hidden = false;
@@ -148,7 +144,7 @@ form.addEventListener("submit", async (e) => {
   try {
     await api("/api/links", {
       method: "POST",
-      body: { category: fd.get("category"), invite: checkedInvite, description: fd.get("description"), source: fd.get("source") },
+      body: { invite: checkedInvite, source: fd.get("source") },
     });
     modal.close();
     toast("Link submitted!", "success");
@@ -159,4 +155,4 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
-loadCategories().then(loadLinks).catch((err) => toast(err.message, "error"));
+loadLinks();

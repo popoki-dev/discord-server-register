@@ -139,9 +139,11 @@ def admin():
         yield c
 
 
-def make_user(email: str, status: UserStatus = UserStatus.approved) -> None:
+def make_user(email: str, status: UserStatus = UserStatus.approved, full_name: str | None = None) -> None:
+    full_name = full_name or email.split("@")[0].title()
     with _client() as c:
-        assert c.post("/api/auth/register", json={"email": email, "password": PASSWORD}).status_code == 201
+        r = c.post("/api/auth/register", json={"email": email, "password": PASSWORD, "full_name": full_name})
+        assert r.status_code == 201
     from app.database import SessionLocal
 
     with SessionLocal() as db:
@@ -158,7 +160,7 @@ def login(email: str) -> TestClient:
 
 @pytest.fixture
 def user():
-    make_user("user@example.com")
+    make_user("user@example.com", full_name="Uma User")
     c = login("user@example.com")
     yield c
     c.__exit__(None, None, None)
@@ -166,7 +168,7 @@ def user():
 
 @pytest.fixture
 def other_user():
-    make_user("other@example.com")
+    make_user("other@example.com", full_name="Otto Other")
     c = login("other@example.com")
     yield c
     c.__exit__(None, None, None)

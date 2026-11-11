@@ -37,7 +37,7 @@ registerForm.addEventListener("submit", async (e) => {
   const btn = registerForm.querySelector("button[type=submit]");
   btn.disabled = true;
   try {
-    const res = await api("/api/auth/register", { method: "POST", body: { email: fd.get("email"), password: fd.get("password") } });
+    const res = await api("/api/auth/register", { method: "POST", body: { full_name: fd.get("full_name"), email: fd.get("email"), password: fd.get("password") } });
     registerForm.reset();
     showFormMessage(registerForm, ".form-success", res.message);
   } catch (err) {

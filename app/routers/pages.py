@@ -44,3 +44,13 @@ def login_page(request: Request, db: Session = Depends(get_db)):
     if session_user(request, db):
         return RedirectResponse("/", status_code=303)
     return templates.TemplateResponse(request, "login.html", {"user": None, "page": "login"})
+
+
+@router.get("/admin/links")
+def admin_links_page(request: Request, db: Session = Depends(get_db)):
+    user = session_user(request, db)
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    if not user.is_admin:
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(request, "admin_links.html", {"user": user, "page": "admin_links"})
