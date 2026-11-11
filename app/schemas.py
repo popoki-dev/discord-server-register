@@ -61,6 +61,16 @@ class SetupIn(BaseModel):
         return v
 
 
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def bcrypt_limit(cls, v: str) -> str:
+        return _bcrypt_limit(v)
+
+
 class UserOut(BaseModel):
     id: int
     email: str

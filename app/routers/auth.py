@@ -3,10 +3,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import signed_in_user
+from app.deps import current_user, signed_in_user
 from app.models import User, UserStatus
 from app.ratelimit import LOGIN_FAILURES_PER_EMAIL, LOGIN_FAILURES_PER_IP, client_ip, too_many
-from app.schemas import Credentials, SetupIn, UserOut
+from app.schemas import Credentials, PasswordChangeIn, SetupIn, UserOut
 from app.security import DUMMY_HASH, hash_password, verify_password
 from app.sessions import revoke_sessions, session_account, start_session
 
@@ -47,6 +47,27 @@ def setup(body: SetupIn, request: Request, db: Session = Depends(get_db), user: 
     revoke_sessions(user, db)
     start_session(request, user)
     return UserOut.model_validate(user)
+
+
+@router.post("/password")
+def change_password(
+    body: PasswordChangeIn, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
+) -> dict:
+    """Change your own password. Your other sessions are signed out; this one stays signed in."""
+    # Wrong current passwords count as failed sign-ins, so a stolen session can't be used to guess it.
+    ip = client_ip(request)
+    if wait := max(LOGIN_FAILURES_PER_EMAIL.retry_after(user.email), LOGIN_FAILURES_PER_IP.retry_after(ip)):
+        raise too_many(wait, "failed password attempts")
+    if not verify_password(body.current_password, user.password_hash):
+        LOGIN_FAILURES_PER_EMAIL.record(user.email)
+        LOGIN_FAILURES_PER_IP.record(ip)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is incorrect")
+    if body.new_password == body.current_password:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "The new password must be different from the current one")
+    user.password_hash = hash_password(body.new_password)
+    revoke_sessions(user, db)
+    start_session(request, user)
+    return {"message": "Password changed. You've been signed out everywhere else."}
 
 
 @router.post("/logout")

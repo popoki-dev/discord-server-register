@@ -20,7 +20,11 @@
     </nav>
     {% endif %}
     <div class="account">
+      {% if user.needs_setup %}
       <span class="muted">{{ user.email }}</span>
+      {% else %}
+      <a href="/account" class="account-link {{ 'active' if page == 'account' }}" title="Account and password">{{ user.email }}</a>
+      {% endif %}
       <button class="btn btn-ghost" id="logout-btn" type="button">Log out</button>
     </div>
     {% endif %}

@@ -75,6 +75,14 @@ def login_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "login.html", {"user": None, "page": "login"})
 
 
+@router.get("/account")
+def account_page(request: Request, db: Session = Depends(get_db)):
+    user = session_user(request, db)
+    if redirect := _redirect_if_not_ready(user):
+        return redirect
+    return templates.TemplateResponse(request, "account.html", {"user": user, "page": "account"})
+
+
 @router.get("/setup")
 def setup_page(request: Request, db: Session = Depends(get_db)):
     """First sign-in: the user sets their name and replaces the password the administrator gave them."""

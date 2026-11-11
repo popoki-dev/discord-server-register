@@ -51,6 +51,7 @@ Open <http://localhost:8000>. The tables are created automatically on first star
 
 1. **Add a user.** Sign in as the admin, open **User management** (`/admin`) and click **+ Add user**. Enter the user's email and a password (at least 8 characters), then give both to the user. Until they sign in, their name shows as *Not signed in yet*. **Reject** revokes a user's access immediately; **Approve** gives it back.
 2. **First sign-in.** The user signs in with that email and password. Because their name is still empty, they're taken to **Set up your account** first, where they enter their full name and choose a new password. Nothing else is available until that's done. Afterwards the admin's password no longer works.
+   - To change it later, click your email in the top bar to open **Change password** (`/account`). Enter the current password and the new one; your other devices are signed out.
 3. **Submit links.** Users click **+ Submit link** on the links page, then:
    - paste an invite link
    - press **Check** to fetch and preview the server's details (Submit stays disabled until the check passes, and the server refuses unchecked invites too)
@@ -80,6 +81,7 @@ All endpoints except login need an approved session, and all except `setup`, `me
 | POST | `/api/auth/login` | Sign in. Pending or rejected users get `403`. |
 | POST | `/api/auth/logout` | Sign out |
 | POST | `/api/auth/setup` | First sign-in only: set `full_name` and a new `password` (must differ from the one the admin set). Signs out other sessions. `409` once the account is set up. |
+| POST | `/api/auth/password` | Change your own password (`current_password`, `new_password`). Wrong current passwords count as failed sign-ins and are rate-limited the same way. Signs out your other sessions. |
 | GET | `/api/auth/me` | The current user, including `needs_setup` |
 | POST | `/api/admin/users` | Add a user (`email`, `password`). The account is approved, has no name yet and must finish setup on first sign-in. `409` if the email is taken. |
 | GET | `/api/admin/users?status=pending` | List users, optionally filtered by `pending`, `approved` or `rejected` |
@@ -130,7 +132,7 @@ app/
   deps.py          current-user and admin dependencies
   discord.py       invite parsing and Discord lookup
   routers/
-    auth.py        login, first-time setup, logout, me
+    auth.py        login, first-time setup, password change, logout, me
     admin.py       adding users, approval, link actions (joined, delete)
     links.py       check, submit, list (scoped per user)
     pages.py       HTML page routes

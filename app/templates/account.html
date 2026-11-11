@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Account · Discord Server Register{% endblock %}
+{% block content %}
+<section class="auth-card card">
+  <h1>Change password</h1>
+  <p class="muted">Signed in as {{ user.full_name }} ({{ user.email }}). Changing your password signs you out on every other device.</p>
+  <form id="password-form" class="stack">
+    <label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label>
+    <label>New password<input type="password" name="new_password" autocomplete="new-password" minlength="8" required>
+      <small class="muted">At least 8 characters.</small></label>
+    <label>Confirm new password<input type="password" name="confirm" autocomplete="new-password" minlength="8" required></label>
+    <p class="form-error" hidden></p>
+    <p class="form-success" hidden></p>
+    <button class="btn btn-primary" type="submit">Change password</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ static_url('account.js') }}"></script>{% endblock %}
