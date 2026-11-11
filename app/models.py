@@ -18,6 +18,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    full_name: Mapped[str] = mapped_column(String(100), default="", server_default="")
     password_hash: Mapped[str] = mapped_column(String(255))
     status: Mapped[UserStatus] = mapped_column(
         Enum(UserStatus, name="user_status"), default=UserStatus.pending, index=True
@@ -43,7 +44,10 @@ class Link(Base):
     guild_icon: Mapped[str | None] = mapped_column(String(255))
     member_count: Mapped[int | None] = mapped_column(Integer)
     # Kept for moderation; never exposed through the public link API.
-    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    # Set when an admin deletes the link. The row is kept so the server stays blocked
+    # (guild_id is unique) and can never be submitted again.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     submitter: Mapped[User] = relationship(back_populates="links")

@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app import models  # noqa: F401  (registers tables on Base.metadata)
 from app.config import settings
 from app.database import Base, SessionLocal, engine
+from app.migrations import upgrade
 from app.models import User, UserStatus
 from app.routers import admin, auth, links, pages
 from app.security import hash_password
@@ -20,11 +21,16 @@ def ensure_admin() -> None:
         return
     email = settings.admin_email.strip().lower()
     with SessionLocal() as db:
-        if db.scalar(select(User).where(User.email == email)):
+        existing = db.scalar(select(User).where(User.email == email))
+        if existing:
+            if not existing.full_name:  # accounts created before full names existed
+                existing.full_name = settings.admin_name
+                db.commit()
             return
         db.add(
             User(
                 email=email,
+                full_name=settings.admin_name,
                 password_hash=hash_password(settings.admin_password),
                 status=UserStatus.approved,
                 is_admin=True,
@@ -36,6 +42,7 @@ def ensure_admin() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    upgrade(engine)
     ensure_admin()
     yield
 

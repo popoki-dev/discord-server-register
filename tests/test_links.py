@@ -156,3 +156,39 @@ def test_list_filters_and_search(user):
 def test_categories(user):
     cats = user.get("/api/links/categories").json()
     assert "Gaming" in cats and "Other" in cats
+
+
+# ---------------------------------------------------------------- deleted servers stay blocked
+
+def delete(admin, link_id):
+    return admin.delete(f"/api/admin/links/{link_id}")
+
+
+def test_deleted_link_disappears_from_public_list(user, admin):
+    check(user, "alpha")
+    link_id = submit(user).json()["id"]
+    assert delete(admin, link_id).status_code == 204
+    assert user.get("/api/links").json() == []
+
+
+def test_deleted_server_cannot_be_submitted_again(user, other_user, admin):
+    check(user, "alpha")
+    delete(admin, submit(user).json()["id"])
+    for client, invite in ((user, "alpha"), (other_user, "alpha-other")):  # any invite for that server
+        r = check(client, invite)
+        assert r.json()["already_registered"] is True
+        assert r.json()["removed"] is True
+        assert submit(client, invite=invite).status_code == 400  # check never unlocks submit
+
+
+def test_deleted_server_race_returns_removed_message(user, admin):
+    check(user, "beta")
+    submit(user, invite="beta")
+    check(user, "alpha")  # checked while still allowed...
+    with_alpha = admin.post("/api/links/check", json={"invite": "alpha"})
+    assert with_alpha.status_code == 200
+    admin_id = submit(admin).json()["id"]  # ...then an admin registers and deletes it
+    delete(admin, admin_id)
+    r = submit(user)
+    assert r.status_code == 409
+    assert "removed by an administrator" in r.json()["detail"]

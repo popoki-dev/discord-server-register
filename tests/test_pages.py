@@ -36,3 +36,16 @@ def test_admin_sees_user_management(admin):
 def test_static_assets_are_served(client):
     for asset in ("/static/style.css", "/static/common.js", "/static/links.js"):
         assert client.get(asset).status_code == 200
+
+
+def test_link_management_page_is_admin_only(client, user, admin):
+    assert client.get("/admin/links", follow_redirects=False).headers["location"] == "/login"
+    assert user.get("/admin/links", follow_redirects=False).headers["location"] == "/"
+    r = admin.get("/admin/links")
+    assert r.status_code == 200
+    assert 'id="filters"' in r.text
+    assert 'href="/admin/links"' not in user.get("/").text
+
+
+def test_register_form_asks_for_full_name(client):
+    assert 'name="full_name"' in client.get("/login").text

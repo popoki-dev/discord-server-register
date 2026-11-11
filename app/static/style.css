@@ -175,3 +175,21 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); o
   .toolbar select { width: 100%; }
   .grid { grid-template-columns: 1fr; }
 }
+
+/* link management */
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 16px; margin-bottom: 12px; }
+.filters label { min-width: 160px; }
+.filters label:first-child { flex: 1; min-width: 220px; }
+.filters label.checkbox { flex-direction: row; align-items: center; gap: 8px; min-width: 0; padding-bottom: 10px; font-weight: 400; }
+.filters label.checkbox input { width: auto; }
+.server-cell { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+.server-cell .badge { margin-left: 6px; }
+.server-icon.sm { width: 32px; height: 32px; font-size: .9rem; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.nowrap { white-space: nowrap; }
+.row-deleted td { opacity: .6; }
+.row-deleted td:last-child { opacity: 1; }
+#result-count { margin: 0 0 8px; }
+.container.wide { max-width: 1440px; }
+.table.compact th, .table.compact td { padding: 10px 12px; }
+.table.compact .actions { flex-wrap: nowrap; }

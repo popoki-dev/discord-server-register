@@ -22,9 +22,22 @@ class Credentials(BaseModel):
         return v
 
 
+class RegisterIn(Credentials):
+    full_name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("full_name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        v = " ".join(v.split())
+        if not v:
+            raise ValueError("Full name must not be blank")
+        return v
+
+
 class UserOut(BaseModel):
     id: int
     email: str
+    full_name: str
     status: UserStatus
     is_admin: bool
     created_at: datetime
@@ -61,6 +74,8 @@ class ServerInfo(BaseModel):
     invite_url: str
     expires_at: datetime | None
     already_registered: bool
+    # True when the server was registered before and then deleted by an admin (permanently blocked).
+    removed: bool
 
 
 class LinkIn(BaseModel):
@@ -98,3 +113,16 @@ class LinkOut(BaseModel):
     description: str
     source: str
     created_at: datetime
+
+
+class Submitter(BaseModel):
+    id: int
+    full_name: str
+    email: str
+
+
+class AdminLinkOut(LinkOut):
+    """Admin view of a link, including who submitted it."""
+
+    submitter: Submitter
+    deleted_at: datetime | None

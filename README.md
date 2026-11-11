@@ -43,16 +43,22 @@ Open <http://localhost:8000>. The tables are created automatically on first star
 | `DATABASE_URL` | SQLAlchemy URL, e.g. `postgresql+psycopg2://postgres:<password>@localhost:5432/discord_register` |
 | `SECRET_KEY` | Signs the session cookie. Use a long random value in production: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | If both are set, this admin account is created on startup when it doesn't already exist. Changing them later doesn't update an existing account. |
+| `ADMIN_NAME` | Full name for that admin account. Optional; defaults to `Administrator`. |
 
 ## Usage
 
-1. **Apply.** On the **Register** tab of `/login`, enter an email and password (at least 8 characters).
+1. **Apply.** On the **Register** tab of `/login`, enter your full name, email and a password (at least 8 characters).
 2. **Approve.** Sign in as the admin and open **User management** (`/admin`). Approve or reject applications under the Pending tab. Rejecting an approved user revokes their access immediately.
 3. **Submit links.** Approved users click **+ Submit link** on the links page, then:
    - choose a category and paste an invite link
    - press **Check** to fetch and preview the server's details (Submit stays disabled until the check passes, and the server refuses unchecked invites too)
    - add a brief description and the source where the link was found, then press **Submit**
 4. **Browse.** The links page lists every submitted server. You can search it and filter by category.
+5. **Manage links (admins).** **Link management** (`/admin/links`) lists every link in a table with its server icon, server ID, category, and the submitter's name and email.
+   - **Filter** by submitter, or by a date range (**From** and **To** are both inclusive).
+   - **Copy** copies the invite link to the clipboard.
+   - **Delete** removes the link from the list. That server can never be submitted again.
+   - Tick **Show deleted** to see deleted links too.
 
 These invite formats are accepted: `https://discord.gg/CODE`, `https://discord.com/invite/CODE`, `https://discordapp.com/invite/CODE`, or a bare `CODE`.
 
@@ -69,6 +75,9 @@ All endpoints except register and login need an approved session. The `/api/admi
 | GET | `/api/admin/users?status=pending` | List users, optionally filtered by `pending`, `approved` or `rejected` |
 | POST | `/api/admin/users/{id}/approve` | Approve a user |
 | POST | `/api/admin/users/{id}/reject` | Reject a user, or revoke their access |
+| GET | `/api/admin/links?submitter_id=&date_from=&date_to=&include_deleted=` | List links with submitter details. Dates are ISO 8601; `date_from` is inclusive and `date_to` is exclusive. |
+| GET | `/api/admin/submitters` | Users who have submitted at least one link, for the submitter filter |
+| DELETE | `/api/admin/links/{id}` | Delete a link. Its server stays permanently blocked from being submitted again. |
 | GET | `/api/links/categories` | The available categories |
 | GET | `/api/links?category=&q=` | List links, with an optional category filter and text search. Submitters are not included. |
 | POST | `/api/links/check` | Look up an invite on Discord and return the server's details and `already_registered` |
@@ -78,8 +87,9 @@ All endpoints except register and login need an approved session. The `/api/admi
 
 - **Discord lookup.** Uses Discord's public invite endpoint, `GET https://discord.com/api/v10/invites/{code}?with_counts=true`. No bot token is needed.
 - **Duplicates.** Detected by `guild_id`, which has a unique constraint in the database. That constraint also catches two people submitting the same server at the same moment.
+- **Deleting.** An admin's delete only hides the link: it sets `deleted_at` and keeps the row. Because `guild_id` stays taken, that server can't be submitted again with any invite, and Check reports that it was removed by an administrator.
 - **Check before submit.** A successful Check is recorded in the user's signed session cookie. A submission is refused unless its invite was checked by that session within the last 30 minutes. The invite is looked up on Discord again when it's submitted, so an invite that expired in between is caught.
-- **Privacy.** Each link stores `submitted_by` for moderation, but the link API never returns it.
+- **Privacy.** Each link stores who submitted it. Only the admin endpoints and the Link management page show it; the link API that regular users see never returns it.
 - **Sessions.** Sessions are signed cookies, valid for 7 days. The user's approval status is checked again on every request.
 
 ## Tests
@@ -101,12 +111,13 @@ app/
   database.py      SQLAlchemy engine and session
   models.py        User and Link tables
   schemas.py       request and response models, categories
+  migrations.py    startup schema upgrades for existing databases
   security.py      bcrypt password hashing
   deps.py          current-user and admin dependencies
   discord.py       invite parsing and Discord lookup
   routers/
     auth.py        register, login, logout, me
-    admin.py       user approval
+    admin.py       user approval, link management
     links.py       check, submit, list
     pages.py       HTML page routes
   templates/       Jinja2 HTML pages

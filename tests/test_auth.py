@@ -2,14 +2,18 @@ from app.models import UserStatus
 from tests.conftest import ADMIN, PASSWORD, make_user
 
 
-def register(client, email="new@example.com", password=PASSWORD):
-    return client.post("/api/auth/register", json={"email": email, "password": password})
+def register(client, email="new@example.com", password=PASSWORD, full_name="New Person"):
+    body = {"email": email, "password": password}
+    if full_name is not None:
+        body["full_name"] = full_name
+    return client.post("/api/auth/register", json=body)
 
 
 def test_register_creates_pending_application(client, admin):
     assert register(client, "New@Example.com").status_code == 201
     users = admin.get("/api/admin/users", params={"status": "pending"}).json()
     assert [u["email"] for u in users] == ["new@example.com"]  # email is normalised
+    assert users[0]["full_name"] == "New Person"
 
 
 def test_register_duplicate_email_is_rejected_case_insensitively(client):
@@ -22,6 +26,15 @@ def test_register_validates_input(client):
     assert register(client, email="not-an-email").status_code == 422
     assert register(client, password="short").status_code == 422
     assert register(client, password="x" * 73).status_code == 422
+
+
+def test_register_requires_full_name(client, admin):
+    assert register(client, full_name=None).status_code == 422
+    assert register(client, full_name="   ").status_code == 422
+    assert register(client, full_name="x" * 101).status_code == 422
+    assert register(client, full_name="  Ada   Lovelace ").status_code == 201
+    pending = admin.get("/api/admin/users", params={"status": "pending"}).json()
+    assert pending[0]["full_name"] == "Ada Lovelace"  # whitespace normalised
 
 
 def test_pending_user_cannot_log_in(client):

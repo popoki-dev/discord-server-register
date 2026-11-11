@@ -106,7 +106,9 @@ function renderPreview(info) {
     el("div", { class: "muted small", text: `Server ID: ${info.guild_id}` }),
     info.expires_at ? el("div", { class: "warn small", text: `⚠ This invite expires on ${formatDate(info.expires_at)}. Consider using a permanent invite.` }) : null,
     info.already_registered
-      ? el("div", { class: "error small strong", text: "This server is already registered. Duplicate entries are not allowed." })
+      ? el("div", { class: "error small strong", text: info.removed
+          ? "This server was removed by an administrator and cannot be submitted again."
+          : "This server is already registered. Duplicate entries are not allowed." })
       : el("div", { class: "ok small strong", text: "✓ Valid invite — ready to submit." }),
   ].filter(Boolean));
   preview.hidden = false;

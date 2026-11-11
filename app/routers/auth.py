@@ -5,17 +5,17 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import current_user
 from app.models import User, UserStatus
-from app.schemas import Credentials, UserOut
+from app.schemas import Credentials, RegisterIn, UserOut
 from app.security import DUMMY_HASH, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register(body: Credentials, db: Session = Depends(get_db)) -> dict:
+def register(body: RegisterIn, db: Session = Depends(get_db)) -> dict:
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "Email is already registered")
-    db.add(User(email=body.email, password_hash=hash_password(body.password)))
+    db.add(User(email=body.email, full_name=body.full_name, password_hash=hash_password(body.password)))
     db.commit()
     return {"message": "Application submitted. An administrator will review it."}
 
