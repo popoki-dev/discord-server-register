@@ -7,6 +7,7 @@ from app.deps import current_user
 from app.models import User, UserStatus
 from app.schemas import Credentials, RegisterIn, UserOut
 from app.security import DUMMY_HASH, hash_password, verify_password
+from app.sessions import revoke_sessions, session_account, start_session
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -30,13 +31,16 @@ def login(body: Credentials, request: Request, db: Session = Depends(get_db)) ->
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Your application is still awaiting approval")
     if user.status == UserStatus.rejected:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Your application was rejected")
-    request.session.clear()
-    request.session["user_id"] = user.id
+    start_session(request, user)
     return UserOut.model_validate(user)
 
 
 @router.post("/logout")
-def logout(request: Request) -> dict:
+def logout(request: Request, db: Session = Depends(get_db)) -> dict:
+    """Sign out everywhere: every session cookie issued to this account stops working."""
+    user = session_account(request, db)
+    if user is not None:
+        revoke_sessions(user, db)
     request.session.clear()
     return {"message": "Logged out"}
 

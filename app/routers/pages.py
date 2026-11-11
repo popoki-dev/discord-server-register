@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User, UserStatus
+from app.sessions import session_account
 
 router = APIRouter(include_in_schema=False)
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
@@ -33,8 +34,7 @@ templates.env.globals["static_url"] = static_url
 
 
 def session_user(request: Request, db: Session) -> User | None:
-    user_id = request.session.get("user_id")
-    user = db.get(User, user_id) if user_id else None
+    user = session_account(request, db)
     if user is None or user.status != UserStatus.approved:
         request.session.clear()
         return None

@@ -3,11 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User, UserStatus
+from app.sessions import session_account
 
 
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    user_id = request.session.get("user_id")
-    user = db.get(User, user_id) if user_id else None
+    user = session_account(request, db)
     if user is None:
         request.session.clear()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not logged in")
