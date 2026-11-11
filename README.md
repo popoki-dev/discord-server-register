@@ -15,16 +15,17 @@ A small web service for collecting and sharing Discord server invite links, buil
 ## Setup
 
 ```bash
-# 1. Start PostgreSQL (or point DATABASE_URL at an existing server)
+# 1. Configure
+cp .env.example .env
+#    then edit .env: set POSTGRES_PASSWORD (and the same password in DATABASE_URL),
+#    SECRET_KEY and ADMIN_PASSWORD to strong random values
+
+# 2. Start PostgreSQL (or point DATABASE_URL at an existing server)
 docker compose up -d
 
-# 2. Install dependencies
+# 3. Install dependencies
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-
-# 3. Configure
-cp .env.example .env
-#    then edit .env and set SECRET_KEY and ADMIN_PASSWORD to strong values
 
 # 4. Run
 .venv/bin/uvicorn app.main:app --reload
@@ -32,11 +33,14 @@ cp .env.example .env
 
 Open <http://localhost:8000>. The tables are created automatically on first start.
 
+> **Security:** `docker-compose.yml` publishes PostgreSQL on `127.0.0.1` only. Don't change it to `5432:5432`. Docker-published ports bypass host firewalls such as ufw, and bots scan the internet for open PostgreSQL servers with weak passwords.
+
 ### Configuration (`.env`)
 
 | Variable | Description |
 |---|---|
-| `DATABASE_URL` | SQLAlchemy URL, e.g. `postgresql+psycopg2://postgres:postgres@localhost:5432/discord_register` |
+| `POSTGRES_PASSWORD` | Password for the Docker PostgreSQL container. Required by `docker-compose.yml`. |
+| `DATABASE_URL` | SQLAlchemy URL, e.g. `postgresql+psycopg2://postgres:<password>@localhost:5432/discord_register` |
 | `SECRET_KEY` | Signs the session cookie. Use a long random value in production: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | If both are set, this admin account is created on startup when it doesn't already exist. Changing them later doesn't update an existing account. |
 
