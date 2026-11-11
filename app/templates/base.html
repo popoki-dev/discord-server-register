@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Discord Server Register{% endblock %}</title>
-  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="{{ static_url('favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ static_url('style.css') }}">
 </head>
 <body>
   <header class="topbar">
@@ -15,7 +15,6 @@
       <a href="/" class="{{ 'active' if page == 'links' }}">Links</a>
       {% if user.is_admin %}
       <a href="/admin" class="{{ 'active' if page == 'admin' }}">User management</a>
-      <a href="/admin/links" class="{{ 'active' if page == 'admin_links' }}">Link management</a>
       {% endif %}
     </nav>
     <div class="account">
@@ -28,7 +27,7 @@
     {% block content %}{% endblock %}
   </main>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  <script src="/static/common.js"></script>
+  <script src="{{ static_url('common.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

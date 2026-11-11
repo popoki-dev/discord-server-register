@@ -1,8 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, PlainSerializer, field_validator
 
 from app.models import UserStatus
+
+
+def _utc_iso(value: datetime) -> str:
+    if value.tzinfo is None:  # treat naive values as UTC rather than the server's local zone
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# Every time in the API is sent as UTC ISO 8601 ending in "Z"; the browser converts it to the viewer's zone.
+UTCDateTime = Annotated[datetime, PlainSerializer(_utc_iso, return_type=str)]
 
 
 class Credentials(BaseModel):
@@ -40,8 +51,8 @@ class UserOut(BaseModel):
     full_name: str
     status: UserStatus
     is_admin: bool
-    created_at: datetime
-    reviewed_at: datetime | None
+    created_at: UTCDateTime
+    reviewed_at: UTCDateTime | None
 
     model_config = {"from_attributes": True}
 
@@ -58,7 +69,7 @@ class ServerInfo(BaseModel):
     member_count: int | None
     online_count: int | None
     invite_url: str
-    expires_at: datetime | None
+    expires_at: UTCDateTime | None
     already_registered: bool
     # True when the server was registered before and then deleted by an admin (permanently blocked).
     removed: bool
@@ -78,7 +89,7 @@ class LinkIn(BaseModel):
 
 
 class LinkOut(BaseModel):
-    """Public view of a link. Deliberately has no submitter field."""
+    """A link as its submitter sees it. Deliberately has no submitter field."""
 
     id: int
     guild_id: str
@@ -88,9 +99,10 @@ class LinkOut(BaseModel):
     member_count: int | None
     online_count: int | None
     invite_url: str
-    expires_at: datetime | None
+    expires_at: UTCDateTime | None
     source: str
-    register_time: datetime
+    register_time: UTCDateTime
+    removed: bool
 
     model_config = {"from_attributes": True}
 
@@ -104,8 +116,7 @@ class Submitter(BaseModel):
 
 
 class AdminLinkOut(LinkOut):
-    """Admin view of a link, including who submitted it."""
+    """Admin view of a link, including who submitted it and whether it has been joined."""
 
     joined: bool
     register_account: Submitter
-    removed: bool

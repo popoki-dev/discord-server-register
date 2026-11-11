@@ -56,9 +56,31 @@ function isHttpUrl(value) {
   } catch { return false; }
 }
 
+// The API sends every time in UTC. Show it in the viewer's own time zone, with the zone named.
+const VIEWER_TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+// (dateStyle/timeStyle can't be combined with timeZoneName, so the parts are listed.)
+const DATE_PARTS = { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" };
+const localFormat = new Intl.DateTimeFormat(undefined, { ...DATE_PARTS, timeZoneName: "short" });
+const utcFormat = new Intl.DateTimeFormat(undefined, { ...DATE_PARTS, timeZone: "UTC" });
+
 function formatDate(iso) {
-  return iso ? new Date(iso).toLocaleString() : "—";
+  return iso ? localFormat.format(new Date(iso)) : "—";
 }
+
+// A <time> element in the viewer's zone, with the UTC time in its tooltip.
+function timeEl(iso, attrs = {}) {
+  if (!iso) return el("span", { ...attrs, text: "—" });
+  const d = new Date(iso);
+  return el("time", { ...attrs, datetime: d.toISOString(), title: `${utcFormat.format(d)} UTC`, text: localFormat.format(d) });
+}
+
+function setTimeZoneNote() {
+  for (const node of document.querySelectorAll("[data-timezone-note]")) {
+    node.textContent = `Times are shown in your time zone (${VIEWER_TIME_ZONE}). Hover a time to see it in UTC.`;
+  }
+}
+document.addEventListener("DOMContentLoaded", setTimeZoneNote);
+setTimeZoneNote();
 
 function formatNumber(n) {
   return typeof n === "number" ? n.toLocaleString() : "—";

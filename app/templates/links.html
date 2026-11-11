@@ -2,20 +2,52 @@
 {% block main_class %}wide{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>Server links</h1>
+  <h1>{{ "Server links" if user.is_admin else "My server links" }}</h1>
   <button class="btn btn-primary" id="open-submit" type="button">+ Submit link</button>
 </div>
 
-<div class="toolbar">
-  <input type="search" id="search" placeholder="Search servers…" aria-label="Search servers">
-</div>
+<form id="filters" class="filters card">
+  <label class="grow">Server name or description
+    <input type="search" name="q" maxlength="100" placeholder="Search…" autocomplete="off">
+  </label>
+  {% if user.is_admin %}
+  <label class="grow">Submitter
+    <select name="submitter_id"><option value="">All submitters</option></select>
+  </label>
+  {% endif %}
+  <label title="The date the link was submitted to this site">Submitted from
+    <input type="date" name="date_from">
+  </label>
+  <label>Submitted to
+    <input type="date" name="date_to">
+  </label>
+  {% if user.is_admin %}
+  <label>Status
+    <select name="joined">
+      <option value="all">All</option>
+      <option value="joined">Joined</option>
+      <option value="unjoined">Unjoined</option>
+    </select>
+  </label>
+  {% endif %}
+  <label>Deletion
+    <select name="deletion">
+      <option value="active">Not deleted</option>
+      <option value="deleted">Deleted</option>
+      <option value="all">All</option>
+    </select>
+  </label>
+  <button class="btn btn-ghost" type="reset">Clear</button>
+</form>
 
+<p class="muted small list-meta"><span id="result-count"></span> · <span data-timezone-note></span></p>
 <div class="card table-wrap">
-  <table class="table compact">
+  <table class="table compact" id="links-table" data-admin="{{ 'true' if user.is_admin else 'false' }}">
     <thead>
       <tr>
-        <th>Server</th><th>Description</th><th class="right">Members</th><th class="right">Online</th>
-        <th>Source</th><th>Registered</th><th class="right">Invite</th>
+        <th>Server</th><th>Description</th>
+        <th class="right">Members</th><th class="right">Online</th><th>Source</th>{% if user.is_admin %}<th>Status</th>{% endif %}<th>Submitted</th>
+        {% if user.is_admin %}<th>Submitter</th><th class="right">Actions</th>{% endif %}
       </tr>
     </thead>
     <tbody id="links-body"></tbody>
@@ -52,4 +84,4 @@
   </form>
 </dialog>
 {% endblock %}
-{% block scripts %}<script src="/static/links.js"></script>{% endblock %}
+{% block scripts %}<script src="{{ static_url('link_actions.js') }}"></script><script src="{{ static_url('links.js') }}"></script>{% endblock %}
