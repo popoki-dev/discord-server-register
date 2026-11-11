@@ -31,3 +31,70 @@ class UserOut(BaseModel):
     reviewed_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+CATEGORIES = [
+    "Gaming",
+    "Community",
+    "Education",
+    "Technology",
+    "Art & Creative",
+    "Music",
+    "Anime & Manga",
+    "Entertainment",
+    "Science",
+    "Other",
+]
+
+
+class InviteCheckIn(BaseModel):
+    invite: str = Field(min_length=1, max_length=255)
+
+
+class ServerInfo(BaseModel):
+    guild_id: str
+    name: str
+    icon_url: str | None
+    description: str | None
+    member_count: int | None
+    online_count: int | None
+    invite_url: str
+    expires_at: datetime | None
+    already_registered: bool
+
+
+class LinkIn(BaseModel):
+    category: str
+    invite: str = Field(min_length=1, max_length=255)
+    description: str = Field(min_length=1, max_length=500)
+    source: str = Field(min_length=1, max_length=255)
+
+    @field_validator("category")
+    @classmethod
+    def known_category(cls, v: str) -> str:
+        if v not in CATEGORIES:
+            raise ValueError(f"Category must be one of: {', '.join(CATEGORIES)}")
+        return v
+
+    @field_validator("description", "source")
+    @classmethod
+    def strip_text(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Must not be blank")
+        return v
+
+
+class LinkOut(BaseModel):
+    """Public view of a link. Deliberately has no submitter field."""
+
+    id: int
+    guild_id: str
+    guild_name: str
+    icon_url: str | None
+    member_count: int | None
+    invite_url: str
+    category: str
+    description: str
+    source: str
+    created_at: datetime
