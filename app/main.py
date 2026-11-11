@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, text
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -8,7 +10,7 @@ from app import models  # noqa: F401  (registers tables on Base.metadata)
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import User, UserStatus
-from app.routers import admin, auth, links
+from app.routers import admin, auth, links, pages
 from app.security import hash_password
 
 
@@ -49,6 +51,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(links.router)
+app.include_router(pages.router)
+app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "static"), name="static")
 
 
 @app.get("/health")

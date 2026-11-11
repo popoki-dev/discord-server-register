@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Discord Server Register{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Discord Server Register</a>
+    {% if user %}
+    <nav>
+      <a href="/" class="{{ 'active' if page == 'links' }}">Links</a>
+      {% if user.is_admin %}<a href="/admin" class="{{ 'active' if page == 'admin' }}">User management</a>{% endif %}
+    </nav>
+    <div class="account">
+      <span class="muted">{{ user.email }}</span>
+      <button class="btn btn-ghost" id="logout-btn" type="button">Log out</button>
+    </div>
+    {% endif %}
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/static/common.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

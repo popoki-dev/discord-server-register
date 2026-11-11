@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>Server links</h1>
+  <button class="btn btn-primary" id="open-submit" type="button">+ Submit link</button>
+</div>
+
+<div class="toolbar">
+  <input type="search" id="search" placeholder="Search servers…" aria-label="Search servers">
+  <select id="category-filter" aria-label="Filter by category">
+    <option value="">All categories</option>
+  </select>
+</div>
+
+<p id="links-empty" class="empty muted" hidden>No links yet.</p>
+<div id="links-grid" class="grid"></div>
+
+<dialog id="submit-modal" class="modal">
+  <form id="submit-form" class="stack" method="dialog">
+    <div class="modal-head">
+      <h2>Submit a server link</h2>
+      <button class="btn btn-ghost icon-btn" type="button" data-close aria-label="Close">✕</button>
+    </div>
+
+    <label>Category
+      <select name="category" required><option value="" disabled selected>Choose a category</option></select>
+    </label>
+
+    <label>Invite link
+      <div class="input-row">
+        <input type="text" name="invite" placeholder="https://discord.gg/abc123" autocomplete="off" required>
+        <button class="btn" type="button" id="check-btn">Check</button>
+      </div>
+    </label>
+
+    <div id="server-preview" class="preview" hidden></div>
+
+    <label>Brief description
+      <textarea name="description" rows="3" maxlength="500" required></textarea>
+    </label>
+
+    <label>Source
+      <input type="text" name="source" maxlength="255" placeholder="Where did you find this link? (e.g. a website URL)" required>
+    </label>
+
+    <p class="form-error" hidden></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="submit" id="submit-btn" disabled>Submit</button>
+    </div>
+    <small class="muted">Press “Check” to verify the invite before submitting.</small>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}<script src="/static/links.js"></script>{% endblock %}
