@@ -82,6 +82,16 @@ All endpoints except register and login need an approved session. The `/api/admi
 - **Privacy.** Each link stores `submitted_by` for moderation, but the link API never returns it.
 - **Sessions.** Sessions are signed cookies, valid for 7 days. The user's approval status is checked again on every request.
 
+## Tests
+
+```bash
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/pytest
+```
+
+- **Test database:** tests use a separate database named after the one in `DATABASE_URL` plus `_test` (e.g. `discord_register_test`). It's created automatically and emptied before each test. To use a different database, set `TEST_DATABASE_URL`. Your real data is never touched.
+- **No network:** Discord is replaced with an in-process fake, so the tests don't need internet access.
+
 ## Project structure
 
 ```
@@ -101,4 +111,5 @@ app/
     pages.py       HTML page routes
   templates/       Jinja2 HTML pages
   static/          CSS and JavaScript
+tests/             pytest suite (fake Discord, separate test database)
 ```
